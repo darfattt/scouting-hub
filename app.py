@@ -10,7 +10,7 @@ from app_components import (
 
 # Set page configuration
 st.set_page_config(
-    page_title="Goalkeeper Scouting Hub",
+    page_title=" Scouting Hub",
     page_icon="⚽",
     layout="wide"
 )
@@ -25,10 +25,10 @@ def get_rag_system():
 rag = get_rag_system()
 
 # Title and description
-st.title("⚽ Goalkeeper Scouting Hub")
+st.title("⚽ Scouting Hub")
 st.markdown("""
-This application helps you analyze and compare goalkeepers based on their performance statistics.
-Use the AI assistant to ask questions about goalkeepers or explore the data directly.
+This application helps you analyze and compare players based on their performance statistics.
+Use the AI assistant to ask questions about players or explore the data directly.
 """)
 
 # Sidebar
@@ -43,7 +43,7 @@ filtered_data = filter_player_data(rag, filters)
 
 # AI Assistant page
 if page == "AI Assistant":
-    st.header("AI Goalkeeper Scout Assistant")
+    st.header("AI Scout Assistant")
     st.markdown("""
     Ask questions about goalkeepers and get AI-powered insights based on the data.
 
