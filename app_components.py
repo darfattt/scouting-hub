@@ -480,7 +480,10 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
     total_conceded = player_stats.get('conceded_goals', 0)
 
     competitions = player_info.get('competitions', 'All competitions')
-    player_info_text = f"<b>{player_name}</b><br>{age} | {position} | {club}<br>Competitions: {competitions}<br>Matches: {total_matches} | Minutes: {total_minutes} | Goals Conceded: {total_conceded}"
+    per_90_mode = player_info.get('per_90_mode', False)
+    stats_mode = " (Per 90 min)" if per_90_mode else ""
+
+    player_info_text = f"<b>{player_name}</b>{stats_mode}<br>{age} | {position} | {club}<br>Competitions: {competitions}<br>Matches: {total_matches} | Minutes: {total_minutes} | Goals Conceded: {total_conceded}"
 
     # Add player info as an annotation at the top of the chart
     fig.add_annotation(
@@ -581,10 +584,12 @@ def render_player_comparison(data_provider, filtered_data=None):
     # Allow selecting up to 3 players
     st.subheader("Select Players to Compare (up to 3)")
 
-    # Add toggle for selection mode
-    col1, _ = st.columns([1, 3])
+    # Add toggle for selection mode and per 90 minutes option
+    col1, col2 = st.columns([1, 1])
     with col1:
         selection_mode = st.toggle("Multiselect Mode", value=True)
+    with col2:
+        per_90_mode = st.toggle("Per 90 Minutes Stats", value=False, help="Calculate all statistics per 90 minutes of play instead of per match")
 
     # Number of players to compare (2 or 3)
     num_players = st.radio("Number of players to compare:", [2, 3], horizontal=True)
@@ -720,13 +725,45 @@ def render_player_comparison(data_provider, filtered_data=None):
         }
     }
 
+    # Function to convert stats to per 90 minutes
+    def convert_to_per_90(stats, per_90_enabled=False):
+        if not per_90_enabled:
+            return stats
+
+        converted_stats = stats.copy()
+        minutes = stats.get("minutes", 0)
+
+        if minutes == 0:
+            return converted_stats
+
+        # Stats that should be converted to per 90 minutes
+        per_90_stats = [
+            "conceded_goals", "saves", "shots_against", "xcg",
+            "saves_with_reflexes", "exits", "goal_kicks",
+            "short_goal_kicks", "long_goal_kicks", "short_passes",
+            "short_passes_accurate", "long_passes", "long_passes_accurate"
+        ]
+
+        # Convert each stat to per 90 minutes
+        for stat in per_90_stats:
+            if stat in converted_stats:
+                converted_stats[stat] = (converted_stats[stat] * 90) / minutes
+
+        # Recalculate derived stats that depend on per 90 values
+        if per_90_enabled:
+            # Save percentage remains the same as it's already a ratio
+            # Goals conceded per 90 is now just the conceded_goals value
+            converted_stats["goals_conceded_per_90"] = converted_stats.get("conceded_goals", 0)
+
+        return converted_stats
+
     # Calculate additional metrics for each player
     for i, stats in enumerate(player_stats):
         # Calculate derived metrics based on available data
         matches = stats["matches"]
         saves = stats["saves"]
 
-        # Calculate approximate values for missing metrics
+        # Calculate approximate values for missing metrics (before per 90 conversion)
         player_stats[i]["long_goal_kicks"] = int(matches * 3.5)  # Approx 3.5 long goal kicks per match
         player_stats[i]["short_goal_kicks"] = int(matches * 2.5)  # Approx 2.5 short goal kicks per match
         player_stats[i]["goal_kicks"] = player_stats[i]["long_goal_kicks"] + player_stats[i]["short_goal_kicks"]
@@ -742,6 +779,9 @@ def render_player_comparison(data_provider, filtered_data=None):
 
         player_stats[i]["xcg"] = stats["conceded_goals"] * 0.9  # xCG slightly lower than actual goals
 
+        # Apply per 90 minutes conversion if enabled
+        player_stats[i] = convert_to_per_90(player_stats[i], per_90_mode)
+
     # Display bar charts for each player
     actual_players = len(selected_players)
     cols = st.columns(actual_players)
@@ -752,13 +792,17 @@ def render_player_comparison(data_provider, filtered_data=None):
             selected_comps = player_stats[i].get('selected_competitions', ['All competitions'])
             comp_text = ', '.join(selected_comps) if len(selected_comps) <= 2 else f"{selected_comps[0]} +{len(selected_comps)-1} more"
 
+            # Get original stats for display (before per 90 conversion)
+            original_stats = player_data.get(player)
+
             player_info = {
                 "age": "N/A",  # Placeholder age
-                "team": player_stats[i]["team"],
-                "total_matches": player_stats[i]["matches"],
-                "total_minutes": player_stats[i]["minutes"],
-                "total_conceded": player_stats[i]["conceded_goals"],
-                "competitions": comp_text
+                "team": original_stats["team"],
+                "total_matches": original_stats["matches"],
+                "total_minutes": original_stats["minutes"],
+                "total_conceded": original_stats["conceded_goals"],
+                "competitions": comp_text,
+                "per_90_mode": per_90_mode
             }
 
             # For consistency, use only the selected players for comparison
@@ -769,7 +813,8 @@ def render_player_comparison(data_provider, filtered_data=None):
             st.plotly_chart(fig, use_container_width=True)
 
     # Add a table comparison
-    st.subheader("Detailed Comparison")
+    stats_mode_text = " (Per 90 Minutes)" if per_90_mode else ""
+    st.subheader(f"Detailed Comparison{stats_mode_text}")
 
     # Define all metrics to include in the detailed comparison
     all_metrics = {
@@ -914,7 +959,11 @@ def render_player_comparison(data_provider, filtered_data=None):
     # Radar Chart Comparison removed as requested
 
     # Add Player Role Analysis
-    st.subheader("Player Role Analysis")
+    role_stats_mode_text = " (Per 90 Minutes)" if per_90_mode else ""
+    st.subheader(f"Player Role Analysis{role_stats_mode_text}")
+
+    if per_90_mode:
+        st.info("📊 **Per 90 Minutes Mode**: All statistics have been normalized to per 90 minutes of play for fair comparison between players with different playing time.")
 
     # Define metrics and weights for goalkeeper roles
     goalkeeper_role_weights = {
