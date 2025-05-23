@@ -277,6 +277,7 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
     all_metric_names = []
     all_percentile_values = []
     all_actual_values = []
+    all_normalized_values = []  # For bar length
     all_categories = []
     all_hover_texts = []
 
@@ -296,7 +297,7 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
             # List of negative stats where lower values are better
             negative_stats = ["Goals Conceded", "Goals Conceded/90", "Conceded goals", "xCG"]
 
-            # Calculate percentile based on comparison with other players
+            # Calculate percentile based on comparison with other players (for color only)
             if all_values:
                 # Handle stats with all zero values
                 if sum(all_values) == 0:
@@ -343,6 +344,18 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
                 else:
                     percentile = max(0, min(100, (actual_value / metric_info.get('max_value', 1) * 100)))
 
+            # Calculate normalized value for bar length (based on actual values)
+            if all_values and max(all_values) > 0:
+                # Normalize to 0-100 scale based on the maximum value among compared players
+                normalized_value = (actual_value / max(all_values)) * 100
+            else:
+                # Fallback to using max_value from metric_info
+                max_val = metric_info.get('max_value', 1)
+                normalized_value = min(100, (actual_value / max_val) * 100)
+
+            # Ensure minimum bar length for visibility
+            normalized_value = max(5, normalized_value)
+
             # Format the actual value for display
             if isinstance(actual_value, float):
                 actual_str = f"{actual_value:.1f}"
@@ -356,6 +369,7 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
             all_metric_names.append(metric_name)
             all_percentile_values.append(percentile)
             all_actual_values.append(actual_str)
+            all_normalized_values.append(normalized_value)
             all_categories.append(category)
             all_hover_texts.append(hover_text)
 
@@ -366,6 +380,7 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
     df = pd.DataFrame({
         'Metric': all_metric_names,
         'Percentile': all_percentile_values,
+        'NormalizedValue': all_normalized_values,  # For bar length
         'Value': all_actual_values,
         'Category': all_categories,
         'Color': bar_colors,
@@ -402,14 +417,14 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
         category_df = df[df['Category'] == category]
         if not category_df.empty:
             fig.add_trace(go.Bar(
-                x=category_df['Percentile'],
+                x=category_df['NormalizedValue'],  # Use normalized values for bar length
                 y=category_df['Metric'],
                 orientation='h',
                 marker=dict(
-                    color=category_df['Color'],
+                    color=category_df['Color'],  # Color still based on percentile
                     line=dict(width=0.5, color='white')
                 ),
-                text=category_df['Value'],
+                text=category_df['Value'],  # Show actual values as text
                 textposition='auto',
                 hovertext=category_df['HoverText'],
                 hoverinfo='text',
@@ -417,16 +432,8 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
                 showlegend=False
             ))
 
-    # Add vertical lines for percentile bands
-    for x in [1, 20, 40, 60, 80, 100]:
-        fig.add_shape(
-            type="line",
-            x0=x, y0=-0.5,
-            x1=x, y1=len(all_metric_names) - 0.5,
-            line=dict(color="#888888", width=0.8, dash="solid"),
-            opacity=0.15,
-            layer="below"
-        )
+    # Remove percentile bands since we're now showing actual values
+    # The grid lines will be handled by the x-axis grid
 
     # Add category dividers and labels
     prev_category = None
@@ -437,7 +444,7 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
             fig.add_shape(
                 type="line",
                 x0=0, y0=y_pos,
-                x1=100, y1=y_pos,
+                x1=110, y1=y_pos,  # Updated to match new x-axis range
                 line=dict(color="#888888", width=0.8, dash="solid"),
                 opacity=0.3,
                 layer="below"
@@ -472,7 +479,8 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
     total_minutes = player_stats.get('minutes', 0)
     total_conceded = player_stats.get('conceded_goals', 0)
 
-    player_info_text = f"<b>{player_name}</b><br>{age} | {position} | {club}<br>Matches: {total_matches} | Minutes: {total_minutes} | Goals Conceded: {total_conceded}"
+    competitions = player_info.get('competitions', 'All competitions')
+    player_info_text = f"<b>{player_name}</b><br>{age} | {position} | {club}<br>Competitions: {competitions}<br>Matches: {total_matches} | Minutes: {total_minutes} | Goals Conceded: {total_conceded}"
 
     # Add player info as an annotation at the top of the chart
     fig.add_annotation(
@@ -517,14 +525,12 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
     fig.update_layout(
         title=None,
         xaxis=dict(
-            title=None,
+            title="Relative Performance",
             range=[0, 110],
             showgrid=True,
             gridcolor='rgba(136, 136, 136, 0.2)',
             gridwidth=1,
             zeroline=False,
-            tickvals=[1, 20, 40, 60, 80, 100],
-            ticktext=['1', '20', '40', '60', '80', '100'],
             tickfont=dict(size=10, color='#666666')
         ),
         yaxis=dict(
@@ -613,12 +619,58 @@ def render_player_comparison(data_provider, filtered_data=None):
             player3 = st.selectbox("Select third player:", remaining_players, index=0, key="player3")
             selected_players.append(player3)
 
-    # Get player stats
+    # Competition selection for each player
+    st.subheader("Select Competitions (Optional)")
+    st.info("Select specific competitions to filter player data. Leave empty to include all competitions.")
+
+    # Get all available competitions from the data
+    all_competitions = set()
+    for player_name, stats in player_data.items():
+        if 'competitions' in stats and stats['competitions']:
+            if isinstance(stats['competitions'], list):
+                all_competitions.update(stats['competitions'])
+            else:
+                all_competitions.add(stats['competitions'])
+
+    available_competitions = sorted(list(all_competitions)) if all_competitions else ["Indonesia Liga 1"]
+
+    # Competition selection for each selected player
+    player_competitions = {}
+    if available_competitions:
+        cols = st.columns(len(selected_players))
+        for i, (col, player) in enumerate(zip(cols, selected_players)):
+            with col:
+                st.write(f"**{player}**")
+                selected_comps = st.multiselect(
+                    f"Competitions for {player}:",
+                    available_competitions,
+                    default=available_competitions,  # Default to all competitions
+                    key=f"comp_{player}_{i}"
+                )
+                player_competitions[player] = selected_comps if selected_comps else available_competitions
+
+    # Get player stats with competition filtering
     player_stats = []
     for player in selected_players:
         stats = player_data.get(player)
         if stats:
-            player_stats.append(stats)
+            # Apply competition filtering if competitions are selected
+            if player in player_competitions and player_competitions[player]:
+                # Create a filtered version of stats based on selected competitions
+                filtered_stats = stats.copy()
+
+                # If the player has competition-specific data, filter it
+                # For now, we'll use the original stats as the data structure doesn't separate by competition
+                # This is a placeholder for future enhancement when competition-specific data is available
+
+                # Note: The current data structure doesn't separate stats by competition
+                # This feature is prepared for when competition-specific data becomes available
+                filtered_stats['selected_competitions'] = player_competitions[player]
+                player_stats.append(filtered_stats)
+            else:
+                # Use all data if no specific competitions selected
+                stats['selected_competitions'] = available_competitions
+                player_stats.append(stats)
         else:
             st.error(f"Player {player} not found")
             return
@@ -635,6 +687,14 @@ def render_player_comparison(data_provider, filtered_data=None):
         st.subheader(f"Comparison: {selected_players[0]} vs {selected_players[1]}")
     else:
         st.subheader(f"Comparison: {selected_players[0]} vs {selected_players[1]} vs {selected_players[2]}")
+
+    # Display selected competitions info
+    if player_competitions:
+        with st.expander("Selected Competitions", expanded=False):
+            for player in selected_players:
+                if player in player_competitions:
+                    comps = player_competitions[player]
+                    st.write(f"**{player}**: {', '.join(comps) if comps else 'All competitions'}")
 
     # Define metrics for goalkeeper comparison by category
     gk_metrics_by_category = {
@@ -689,12 +749,16 @@ def render_player_comparison(data_provider, filtered_data=None):
     for i, (col, player) in enumerate(zip(cols, selected_players)):
         with col:
             # Create player info dictionary
+            selected_comps = player_stats[i].get('selected_competitions', ['All competitions'])
+            comp_text = ', '.join(selected_comps) if len(selected_comps) <= 2 else f"{selected_comps[0]} +{len(selected_comps)-1} more"
+
             player_info = {
                 "age": "N/A",  # Placeholder age
                 "team": player_stats[i]["team"],
                 "total_matches": player_stats[i]["matches"],
                 "total_minutes": player_stats[i]["minutes"],
-                "total_conceded": player_stats[i]["conceded_goals"]
+                "total_conceded": player_stats[i]["conceded_goals"],
+                "competitions": comp_text
             }
 
             # For consistency, use only the selected players for comparison
@@ -924,19 +988,36 @@ def render_performance_analysis(data_provider, filtered_data=None):
         )
 
         # Add a smooth KDE curve
-        kde_x = np.linspace(df["Save %"].min(), df["Save %"].max(), 100)
-        kde = stats.gaussian_kde(df["Save %"].dropna())
-        kde_y = kde(kde_x)
+        # Ensure we're working with numeric values
+        save_pct_values = df["Save %"].astype(float).dropna()
 
-        fig.add_trace(
-            go.Scatter(
-                x=kde_x,
-                y=kde_y,
-                mode="lines",
-                line=dict(color="#ff7f0e", width=2),
-                name="Density"
+        # Initialize empty arrays as fallback
+        kde_x = []
+        kde_y = []
+
+        try:
+            # Check if we have enough data points with variation
+            if len(save_pct_values) > 3 and save_pct_values.std() > 0:
+                kde_x = np.linspace(save_pct_values.min(), save_pct_values.max(), 100)
+                # Use scipy.stats explicitly to avoid confusion with other 'stats' variables
+                from scipy import stats as scipy_stats
+                kde = scipy_stats.gaussian_kde(save_pct_values)
+                kde_y = kde(kde_x)
+        except Exception as e:
+            st.warning(f"Could not generate KDE curve: {str(e)}")
+            # Keep the empty arrays initialized above
+
+        # Only add KDE trace if we have data
+        if len(kde_x) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=kde_x,
+                    y=kde_y,
+                    mode="lines",
+                    line=dict(color="#ff7f0e", width=2),
+                    name="Density"
+                )
             )
-        )
 
         # Update layout
         fig.update_layout(
@@ -977,19 +1058,36 @@ def render_performance_analysis(data_provider, filtered_data=None):
         )
 
         # Add a smooth KDE curve
-        kde_x = np.linspace(df["Goals Conceded/90"].min(), df["Goals Conceded/90"].max(), 100)
-        kde = stats.gaussian_kde(df["Goals Conceded/90"].dropna())
-        kde_y = kde(kde_x)
+        # Ensure we're working with numeric values
+        gc90_values = df["Goals Conceded/90"].astype(float).dropna()
 
-        fig.add_trace(
-            go.Scatter(
-                x=kde_x,
-                y=kde_y,
-                mode="lines",
-                line=dict(color="#d62728", width=2),
-                name="Density"
+        # Initialize empty arrays as fallback
+        kde_x = []
+        kde_y = []
+
+        try:
+            # Check if we have enough data points with variation
+            if len(gc90_values) > 3 and gc90_values.std() > 0:
+                kde_x = np.linspace(gc90_values.min(), gc90_values.max(), 100)
+                # Use scipy.stats explicitly to avoid confusion with other 'stats' variables
+                from scipy import stats as scipy_stats
+                kde = scipy_stats.gaussian_kde(gc90_values)
+                kde_y = kde(kde_x)
+        except Exception as e:
+            st.warning(f"Could not generate KDE curve: {str(e)}")
+            # Keep the empty arrays initialized above
+
+        # Only add KDE trace if we have data
+        if len(kde_x) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=kde_x,
+                    y=kde_y,
+                    mode="lines",
+                    line=dict(color="#d62728", width=2),
+                    name="Density"
+                )
             )
-        )
 
         # Update layout
         fig.update_layout(
@@ -1055,6 +1153,9 @@ def render_performance_analysis(data_provider, filtered_data=None):
         st.subheader("Top Performers Analysis")
 
         # Create a composite score (higher save %, lower goals conceded/90)
+        # Ensure we're working with numeric values
+        df["Save %"] = df["Save %"].astype(float)
+        df["Goals Conceded/90"] = df["Goals Conceded/90"].astype(float)
         df["Composite Score"] = df["Save %"] / 100 - df["Goals Conceded/90"] / 3
 
         # Show top performers by composite score
