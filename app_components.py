@@ -1754,8 +1754,8 @@ def render_player_comparison(data_provider, filtered_data=None):
         return fig
 
     # Add configuration options for scatter plot
-    include_additional_players = st.checkbox("Include Additional Players from Competition", value=False,
-                                            help="Add other players from selected competition for better context")
+    include_additional_players = st.checkbox("Include Additional Goalkeepers from Competition", value=False,
+                                            help="Add other goalkeepers from selected competition for better context (same position only)")
 
     # Additional competition selection if including other players
     additional_competition = None
@@ -1771,10 +1771,10 @@ def render_player_comparison(data_provider, filtered_data=None):
             available_comps = ["Indonesia Liga 1"]
 
         additional_competition = st.selectbox(
-            "Select competition for additional players:",
+            "Select competition for additional goalkeepers:",
             options=available_comps,
             index=0,
-            help="Choose which competition to include additional players from"
+            help="Choose which competition to include additional goalkeepers from (same position only)"
         )
 
     if selected_players:
@@ -1788,9 +1788,17 @@ def render_player_comparison(data_provider, filtered_data=None):
             # Try to get data from session state or data provider
             if hasattr(st.session_state, 'filtered_data') and st.session_state.filtered_data:
                 for player_name, player_data in st.session_state.filtered_data.items():
+                    # Check if player is a goalkeeper (assume all players in this dataset are goalkeepers)
+                    # Also check for explicit position field if available
+                    is_goalkeeper = True  # Default assumption for goalkeeper dataset
+                    if 'position' in player_data:
+                        position = player_data.get('position', '').lower()
+                        is_goalkeeper = position in ['goalkeeper', 'gk', 'goalie', 'keeper', '']
+
                     if (player_name not in selected_players and
                         player_data.get('competitions') == additional_competition and
-                        player_data.get('matches', 0) >= 3):  # Minimum matches filter
+                        player_data.get('matches', 0) >= 3 and  # Minimum matches filter
+                        is_goalkeeper):  # Same position filter
 
                         # Apply per 90 conversion if needed
                         processed_stats = player_data.copy()
@@ -1833,12 +1841,12 @@ def render_player_comparison(data_provider, filtered_data=None):
                 st.info(f"""
                 **Additional Players Context**:
 
-                The scatter plot includes {len(additional_players_data)} additional players from {additional_competition}
-                (shown in gray) to provide better context for comparison. Selected players are highlighted in color
-                with larger markers and labels.
+                The scatter plot includes {len(additional_players_data)} additional goalkeepers from {additional_competition}
+                (shown in gray) to provide better context for comparison. Only goalkeepers with similar positions and
+                at least 3 matches are included. Selected players are highlighted in color with larger markers and labels.
 
                 - **Selected Players**: Colored markers with labels (comparison players)
-                - **Additional Players**: Gray markers without labels (context players)
+                - **Additional Goalkeepers**: Gray markers without labels (context players from same position)
                 """)
 
         # Add information about negative stats
