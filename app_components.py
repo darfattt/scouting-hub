@@ -636,7 +636,7 @@ def render_player_comparison(data_provider, filtered_data=None):
 
     # Competition selection for each selected player
     player_competitions = {}
-    if available_competitions:
+    if available_competitions and selected_players:
         cols = st.columns(len(selected_players))
         for i, (col, player) in enumerate(zip(cols, selected_players)):
             with col:
@@ -912,6 +912,328 @@ def render_player_comparison(data_provider, filtered_data=None):
     )
 
     # Radar Chart Comparison removed as requested
+
+    # Add Player Role Analysis
+    st.subheader("Player Role Analysis")
+
+    # Define metrics and weights for goalkeeper roles
+    goalkeeper_role_weights = {
+        "Shot Stopper": {
+            "saves": 0.3,
+            "saves_with_reflexes": 0.25,
+            "conceded_goals": -0.2,
+            "xcg": -0.15,
+            "shots_against": 0.1
+        },
+        "Sweeper Keeper": {
+            "exits": 0.25,
+            "long_passes_accurate": 0.2,
+            "short_passes_accurate": 0.15,
+            "goal_kicks": 0.1,
+            "short_goal_kicks": 0.05,
+            "long_goal_kicks": 0.05
+        }
+    }
+
+    # Normalize and score each player for each role
+    def compute_role_scores(player_stats_list, weights):
+        # Gather all unique stats from all roles
+        all_stats = set()
+        for role_weights in weights.values():
+            all_stats.update(role_weights.keys())
+
+        # Calculate min and max values for normalization across all players
+        stat_min = {}
+        stat_max = {}
+
+        for stat in all_stats:
+            values = [float(stats.get(stat, 0)) for stats in player_stats_list]
+            stat_min[stat] = min(values)
+            stat_max[stat] = max(values)
+
+        scores = []
+        for stats in player_stats_list:
+            player_score = {}
+
+            for role, role_weights in weights.items():
+                score = 0
+                total_weight = 0
+
+                for stat, weight in role_weights.items():
+                    if stat in stats:
+                        val = float(stats[stat])
+
+                        # Handle negative weights (where lower values are better)
+                        if weight < 0:
+                            # For negative weights, invert the normalization
+                            if stat_max[stat] != stat_min[stat]:
+                                norm = 1 - ((val - stat_min[stat]) / (stat_max[stat] - stat_min[stat]))
+                            else:
+                                norm = 0.5
+                            score += abs(weight) * norm
+                        else:
+                            # For positive weights, normal normalization
+                            if stat_max[stat] != stat_min[stat]:
+                                norm = (val - stat_min[stat]) / (stat_max[stat] - stat_min[stat])
+                            else:
+                                norm = 0.5
+                            score += weight * norm
+
+                        total_weight += abs(weight)
+
+                # Normalize the score by total weight to get a 0-1 scale
+                if total_weight > 0:
+                    player_score[role] = score / total_weight
+                else:
+                    player_score[role] = 0
+
+            scores.append(player_score)
+        return scores
+
+    # Compute scores for all players (assuming all are goalkeepers)
+    role_scores = compute_role_scores(player_stats, goalkeeper_role_weights)
+
+    # Define colors for each player
+    player_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+    # Create a row for player profiles
+    if selected_players:
+        player_cols = st.columns(len(selected_players))
+
+        # Create a profile chart for each player
+        for i, (player, player_score, col) in enumerate(zip(selected_players, role_scores, player_cols)):
+            with col:
+                # Create player title with info
+                player_matches = player_stats[i].get('matches', 0)
+                player_team = player_stats[i].get('team', 'Unknown')
+                st.markdown(f"<h3 style='text-align: center; margin-bottom: 10px; font-size: 16px;'>{player} (GK)</h3>", unsafe_allow_html=True)
+                st.markdown(f"<p style='text-align: center; margin-bottom: 10px; font-size: 12px; color: #333;'>{player_team} | {player_matches} matches</p>", unsafe_allow_html=True)
+
+                # Create separate figure for this player
+                fig = go.Figure()
+
+                # Sort role scores for this player from highest to lowest
+                sorted_roles = sorted([(role, player_score[role]) for role in goalkeeper_role_weights.keys()], key=lambda x: x[1], reverse=True)
+                role_labels = [role for role, _ in sorted_roles]
+                role_values = [score for _, score in sorted_roles]
+
+                # Add trace for horizontal bar
+                fig.add_trace(go.Bar(
+                    y=role_labels,
+                    x=role_values,
+                    orientation='h',
+                    marker=dict(
+                        color=player_colors[i % len(player_colors)],
+                        line=dict(width=1, color='#333'),
+                        opacity=0.8
+                    ),
+                    text=[f"{value:.2f}" for value in role_values],
+                    textposition='auto',
+                    textfont=dict(color='black', size=10),
+                    showlegend=False
+                ))
+
+                # Update layout
+                fig.update_layout(
+                    title=dict(
+                        text="Role Score Distribution",
+                        font=dict(size=12),
+                        x=0.5
+                    ),
+                    plot_bgcolor='#F9F7F2',
+                    paper_bgcolor='#F9F7F2',
+                    height=250,
+                    margin=dict(l=15, r=15, t=40, b=20),
+                    xaxis=dict(
+                        title='Score',
+                        showgrid=True,
+                        gridcolor='rgba(136, 136, 136, 0.2)',
+                        tickfont=dict(size=9, color='#CCC'),
+                        range=[0, max(role_values) * 1.1] if role_values else [0, 1]
+                    ),
+                    yaxis=dict(
+                        title='',
+                        tickfont=dict(size=10, color='#CCC'),
+                        automargin=True
+                    ),
+                    font=dict(color='#EEE')
+                )
+
+                # Display chart
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Add detailed score breakdown table
+                with st.expander(f"📊 {player} - Detailed Score Breakdown", expanded=False):
+                    for role, role_weights in goalkeeper_role_weights.items():
+                        st.markdown(f"**{role}** (Total Score: {player_score[role]:.3f})")
+
+                        role_breakdown = []
+                        total_weight = sum(abs(w) for w in role_weights.values())
+
+                        for stat, weight in role_weights.items():
+                            if stat in player_stats[i]:
+                                val = float(player_stats[i][stat])
+
+                                # Get min/max for this stat across all players
+                                all_values = [float(p.get(stat, 0)) for p in player_stats]
+                                stat_min = min(all_values)
+                                stat_max = max(all_values)
+
+                                # Calculate normalized value
+                                if weight < 0:
+                                    if stat_max != stat_min:
+                                        norm = 1 - ((val - stat_min) / (stat_max - stat_min))
+                                    else:
+                                        norm = 0.5
+                                    contribution = (abs(weight) * norm) / total_weight
+                                else:
+                                    if stat_max != stat_min:
+                                        norm = (val - stat_min) / (stat_max - stat_min)
+                                    else:
+                                        norm = 0.5
+                                    contribution = (weight * norm) / total_weight
+
+                                # Format stat name for display
+                                display_stat = stat.replace('_', ' ').title()
+                                if stat == "conceded_goals":
+                                    display_stat = "Goals Conceded"
+                                elif stat == "xcg":
+                                    display_stat = "xCG"
+                                elif stat == "shots_against":
+                                    display_stat = "Shots Against"
+                                elif stat == "saves_with_reflexes":
+                                    display_stat = "Saves with Reflexes"
+                                elif stat == "long_passes_accurate":
+                                    display_stat = "Long Passes Accurate"
+                                elif stat == "short_passes_accurate":
+                                    display_stat = "Short Passes Accurate"
+                                elif stat == "goal_kicks":
+                                    display_stat = "Goal Kicks"
+                                elif stat == "short_goal_kicks":
+                                    display_stat = "Short Goal Kicks"
+                                elif stat == "long_goal_kicks":
+                                    display_stat = "Long Goal Kicks"
+
+                                role_breakdown.append({
+                                    "Statistic": display_stat,
+                                    "Raw Value": f"{val:.1f}" if isinstance(val, float) else str(int(val)),
+                                    "Weight": f"{weight:.2f}",
+                                    "Normalized": f"{norm:.3f}",
+                                    "Contribution": f"{contribution:.3f}"
+                                })
+
+                        # Create DataFrame for this role
+                        if role_breakdown:
+                            role_df = pd.DataFrame(role_breakdown)
+                            st.dataframe(role_df, use_container_width=True, hide_index=True)
+
+                        st.markdown("---")
+
+    # Add summary comparison table
+    if selected_players:
+        st.subheader("Role Score Summary")
+
+        # Create summary table
+        summary_data = []
+        for i, player in enumerate(selected_players):
+            player_row = {"Player": player}
+            for role in goalkeeper_role_weights.keys():
+                player_row[role] = f"{role_scores[i][role]:.3f}"
+            summary_data.append(player_row)
+
+        summary_df = pd.DataFrame(summary_data)
+
+        # Style the summary table with color coding
+        def highlight_max_role(s):
+            """Highlight the maximum value in each role column"""
+            if s.name == "Player":
+                return [''] * len(s)
+
+            # Convert to float for comparison, excluding non-numeric values
+            numeric_values = []
+            for val in s:
+                try:
+                    numeric_values.append(float(val))
+                except:
+                    numeric_values.append(0)
+
+            max_val = max(numeric_values)
+            return ['background-color: #90EE90' if float(val) == max_val else '' for val in s]
+
+        styled_summary = summary_df.style.apply(highlight_max_role, axis=0)
+        st.dataframe(styled_summary, use_container_width=True, hide_index=True)
+
+        st.markdown("*Green highlighting indicates the highest score for each role*")
+
+    # Add info message for goalkeeper roles
+    st.info(
+        """
+**Goalkeeper Role Analysis**: Each goalkeeper is scored for different playing styles based on their statistics:
+
+- **Shot Stopper**: Excels at making saves and preventing goals through reflexes and positioning.
+- **Sweeper Keeper**: Acts as an extra defender, good with distribution and reading the game.
+
+**How to Read the Detailed Breakdown**:
+- **Raw Value**: The actual statistic value for the player
+- **Weight**: How important this statistic is for the role (negative means lower is better)
+- **Normalized**: The statistic normalized to 0-1 scale compared to other players
+- **Contribution**: How much this statistic contributes to the final role score
+        """
+    )
+
+    # Add detailed weight information in a collapsible section
+    with st.expander("📊 View Role Weight Details", expanded=False):
+        st.markdown("""
+        ### Goalkeeper Role Weight Details
+
+        Each goalkeeper role is defined by a weighted combination of key statistics that determine the player's suitability for that role.
+        The weights below show which statistics are most important for each role type.
+        """)
+
+        # Create a table for Shot Stopper weights
+        st.markdown("#### Shot Stopper")
+        ss_data = []
+        for stat, weight in goalkeeper_role_weights["Shot Stopper"].items():
+            # Convert stat key to display name
+            display_name = stat.replace('_', ' ').title()
+            if stat == "conceded_goals":
+                display_name = "Goals Conceded"
+            elif stat == "xcg":
+                display_name = "xCG"
+            elif stat == "shots_against":
+                display_name = "Shots Against"
+            elif stat == "saves_with_reflexes":
+                display_name = "Saves with Reflexes"
+            ss_data.append([display_name, weight])
+
+        ss_df = pd.DataFrame(ss_data, columns=["Statistic", "Weight"])
+        st.dataframe(ss_df.style.format({"Weight": "{:.2f}"}), use_container_width=True)
+
+        st.markdown("#### Sweeper Keeper")
+        sk_data = []
+        for stat, weight in goalkeeper_role_weights["Sweeper Keeper"].items():
+            # Convert stat key to display name
+            display_name = stat.replace('_', ' ').title()
+            if stat == "long_passes_accurate":
+                display_name = "Long Passes Accurate"
+            elif stat == "short_passes_accurate":
+                display_name = "Short Passes Accurate"
+            elif stat == "goal_kicks":
+                display_name = "Goal Kicks"
+            elif stat == "short_goal_kicks":
+                display_name = "Short Goal Kicks"
+            elif stat == "long_goal_kicks":
+                display_name = "Long Goal Kicks"
+            sk_data.append([display_name, weight])
+
+        sk_df = pd.DataFrame(sk_data, columns=["Statistic", "Weight"])
+        st.dataframe(sk_df.style.format({"Weight": "{:.2f}"}), use_container_width=True)
+
+        st.markdown("""
+        **Note**: Negative weights indicate that lower values are better for that role (e.g., fewer goals conceded is better for a Shot Stopper).
+        """)
+
+    st.markdown("---")
 
 def render_performance_analysis(data_provider, filtered_data=None):
     """
