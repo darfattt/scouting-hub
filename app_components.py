@@ -15,15 +15,12 @@ from typing import Any, Dict
 
 def add_global_filters() -> Dict[str, Any]:
     """
-    Add global filters to the sidebar for competition and date range.
+    Add global filters to the sidebar for date range.
 
     Returns:
         Dictionary containing the filter settings
     """
     st.sidebar.markdown("## Global Filters")
-
-    # Competition filter
-    competition_filter = st.sidebar.checkbox("Filter by Liga 1 only", value=True)
 
     # Date range filter
     use_date_filter = st.sidebar.checkbox("Filter by date range", value=True)
@@ -49,7 +46,6 @@ def add_global_filters() -> Dict[str, Any]:
     st.sidebar.markdown("---")
 
     return {
-        "competition_filter": competition_filter,
         "use_date_filter": use_date_filter,
         "start_date": start_date,
         "end_date": end_date
@@ -79,11 +75,6 @@ def filter_player_data(data_provider, filters: Dict[str, Any]) -> Dict[str, Dict
         filtered_matches = []
         for match in player_data["match_data"]:
             include_match = True
-
-            # Apply competition filter
-            if filters["competition_filter"] and "Competition" in match:
-                if "Indonesia. Liga 1" not in match["Competition"]:
-                    include_match = False
 
             # Apply date filter
             if filters["use_date_filter"] and "Date" in match:
@@ -1281,6 +1272,590 @@ def render_player_comparison(data_provider, filtered_data=None):
         st.markdown("""
         **Note**: Negative weights indicate that lower values are better for that role (e.g., fewer goals conceded is better for a Shot Stopper).
         """)
+
+    st.markdown("---")
+
+    # Add Scatter Plot Analysis Section
+    st.subheader("Performance Scatter Plot")
+
+    # Define goalkeeper-specific preset combinations
+    gk_preset_combinations = {
+        # Goalkeeper presets
+        "Saves vs Conceded": ("saves", "conceded_goals"),
+        "Distribution vs Exits": ("long_passes_accurate", "exits"),
+        "Shot Stopping vs Sweeping": ("saves_with_reflexes", "xcg"),
+        "Saves vs Shots Against": ("saves", "shots_against"),
+        "Goal Kicks vs Passes": ("goal_kicks", "short_passes_accurate"),
+        "Custom Selection": ("custom", "custom")
+    }
+
+    # Let user select a preset or custom
+    selected_preset = st.selectbox(
+        "Choose analysis perspective:",
+        options=list(gk_preset_combinations.keys()),
+        index=0
+    )
+
+    # Add explanation for the selected preset
+    preset_explanations = {
+        "Saves vs Conceded": "This perspective shows shot-stopping efficiency. "
+                           "Elite Shot Stoppers make many saves with few goals conceded, "
+                           "while Sweeper Keepers may concede more but contribute to build-up play.",
+
+        "Distribution vs Exits": "This highlights goalkeeper's role in possession and defensive actions. "
+                               "Traditional Keepers focus on safe distribution, "
+                               "while Modern Sweeper Keepers excel at both distribution and defensive exits.",
+
+        "Shot Stopping vs Sweeping": "This shows goalkeeper's defensive style specialization. "
+                                    "Pure Shot Stoppers excel at reflex saves, "
+                                    "while Sweeper Keepers contribute more to defensive actions and ball-playing.",
+
+        "Saves vs Shots Against": "This reveals workload and save efficiency relationship. "
+                                "Busy Keepers face many shots and make many saves, "
+                                "while Protected Keepers face fewer shots but must maintain concentration.",
+
+        "Goal Kicks vs Passes": "This shows distribution style and involvement in build-up play. "
+                              "Traditional Keepers rely on goal kicks, "
+                              "while Ball-Playing Keepers are more involved in short passing."
+    }
+
+    if selected_preset in preset_explanations:
+        st.markdown(f"""
+        <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin: 10px 0; font-style: italic; color: #555;">
+            {preset_explanations[selected_preset]}
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Get the preset values
+    preset_x, preset_y = gk_preset_combinations[selected_preset]
+
+    # Create columns for selecting stats for each axis
+    scatter_cols = st.columns(2)
+
+    # Define available stats for goalkeepers
+    gk_available_stats = [
+        "saves", "conceded_goals", "shots_against", "xcg", "saves_with_reflexes",
+        "exits", "goal_kicks", "short_goal_kicks", "long_goal_kicks",
+        "short_passes", "short_passes_accurate", "long_passes", "long_passes_accurate",
+        "minutes", "matches"
+    ]
+
+    # Define stat categories for filtering
+    gk_stat_categories = {
+        "Shot Stopping": ["saves", "saves_with_reflexes", "conceded_goals", "shots_against", "xcg"],
+        "Distribution": ["goal_kicks", "short_goal_kicks", "long_goal_kicks", "short_passes",
+                        "short_passes_accurate", "long_passes", "long_passes_accurate"],
+        "Defensive Actions": ["exits", "xcg"],
+        "General": ["minutes", "matches"]
+    }
+
+    with scatter_cols[0]:
+        if preset_x == "custom":
+            # Add category filter for stats
+            x_stat_category = st.radio(
+                "Filter X-axis stats by category:",
+                options=["All"] + list(gk_stat_categories.keys()),
+                horizontal=True,
+                key="x_stat_category"
+            )
+
+            # Filter stats based on selected category
+            if x_stat_category == "All":
+                x_filtered_stats = gk_available_stats
+            else:
+                x_filtered_stats = gk_stat_categories.get(x_stat_category, gk_available_stats)
+
+            x_stat = st.selectbox(
+                "X-Axis Statistic:",
+                options=x_filtered_stats,
+                index=0,
+                key="x_stat_selector"
+            )
+        else:
+            x_stat = preset_x
+            # Convert display name to stat key
+            display_name = preset_x.replace('_', ' ').title()
+            if preset_x == "conceded_goals":
+                display_name = "Goals Conceded"
+            elif preset_x == "xcg":
+                display_name = "xCG"
+            elif preset_x == "saves_with_reflexes":
+                display_name = "Saves with Reflexes"
+            elif preset_x == "long_passes_accurate":
+                display_name = "Long Passes Accurate"
+            st.markdown(f"**X-Axis**: {display_name}")
+
+    with scatter_cols[1]:
+        if preset_y == "custom":
+            # Add category filter for stats
+            y_stat_category = st.radio(
+                "Filter Y-axis stats by category:",
+                options=["All"] + list(gk_stat_categories.keys()),
+                horizontal=True,
+                key="y_stat_category"
+            )
+
+            # Filter stats based on selected category
+            if y_stat_category == "All":
+                y_filtered_stats = gk_available_stats
+            else:
+                y_filtered_stats = gk_stat_categories.get(y_stat_category, gk_available_stats)
+
+            y_stat = st.selectbox(
+                "Y-Axis Statistic:",
+                options=y_filtered_stats,
+                index=0,
+                key="y_stat_selector"
+            )
+        else:
+            y_stat = preset_y
+            # Convert display name to stat key
+            display_name = preset_y.replace('_', ' ').title()
+            if preset_y == "conceded_goals":
+                display_name = "Goals Conceded"
+            elif preset_y == "xcg":
+                display_name = "xCG"
+            elif preset_y == "saves_with_reflexes":
+                display_name = "Saves with Reflexes"
+            elif preset_y == "long_passes_accurate":
+                display_name = "Long Passes Accurate"
+            st.markdown(f"**Y-Axis**: {display_name}")
+
+    # Create function to generate goalkeeper scatter plot
+    def create_gk_scatter_plot(players, player_stats_list, x_stat, y_stat, per_90_mode=False,
+                              additional_players_data=None):
+        # List of negative stats where lower values are better for goalkeepers
+        negative_stats = ["conceded_goals", "xcg"]
+
+        # Combine selected players with additional players if provided
+        all_players = players.copy()
+        all_player_stats = player_stats_list.copy()
+
+        if additional_players_data:
+            for player_name, stats in additional_players_data.items():
+                if player_name not in players:  # Avoid duplicates
+                    all_players.append(player_name)
+                    all_player_stats.append(stats)
+
+        # Calculate percentiles for the selected stats using all players
+        x_values = []
+        y_values = []
+
+        for stats in all_player_stats:
+            x_val = float(stats.get(x_stat, 0))
+            y_val = float(stats.get(y_stat, 0))
+            x_values.append(x_val)
+            y_values.append(y_val)
+
+        # Calculate percentiles
+        def calculate_percentile(value, all_values, is_negative=False):
+            if len(all_values) <= 1:
+                return 50
+
+            # Calculate percentile rank
+            rank = sum(1 for v in all_values if v < value)
+            percentile = (rank / (len(all_values) - 1)) * 100
+
+            # For negative stats, invert the percentile
+            if is_negative:
+                percentile = 100 - percentile
+
+            return max(5, min(95, percentile))
+
+        # Prepare data for plotting
+        data = []
+        selected_player_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        additional_player_color = '#CCCCCC'  # Gray for additional players
+
+        # Plot all players (selected + additional)
+        for i, (player, stats) in enumerate(zip(all_players, all_player_stats)):
+            # Determine if this is a selected player or additional player
+            is_selected_player = player in players
+            x_val = x_values[i]
+            y_val = y_values[i]
+
+            x_percentile = calculate_percentile(x_val, x_values, x_stat in negative_stats)
+            y_percentile = calculate_percentile(y_val, y_values, y_stat in negative_stats)
+
+            # Determine color and size based on player type
+            if is_selected_player:
+                # Get the index of this player in the original selected players list
+                selected_index = players.index(player)
+                player_color = selected_player_colors[selected_index % len(selected_player_colors)]
+                marker_size = 15
+                opacity = 0.85
+                line_width = 2
+                show_text = True
+            else:
+                player_color = additional_player_color
+                marker_size = 8
+                opacity = 0.4
+                line_width = 1
+                show_text = False
+
+            # Create hover text
+            player_type = "Selected Player" if is_selected_player else "Additional Player"
+            hover_text = f"<b>{player}</b> ({player_type})<br>"
+
+            # Format stat names for display
+            x_display = x_stat.replace('_', ' ').title()
+            y_display = y_stat.replace('_', ' ').title()
+
+            if x_stat == "conceded_goals":
+                x_display = "Goals Conceded"
+            elif x_stat == "xcg":
+                x_display = "xCG"
+            elif x_stat == "saves_with_reflexes":
+                x_display = "Saves with Reflexes"
+            elif x_stat == "long_passes_accurate":
+                x_display = "Long Passes Accurate"
+
+            if y_stat == "conceded_goals":
+                y_display = "Goals Conceded"
+            elif y_stat == "xcg":
+                y_display = "xCG"
+            elif y_stat == "saves_with_reflexes":
+                y_display = "Saves with Reflexes"
+            elif y_stat == "long_passes_accurate":
+                y_display = "Long Passes Accurate"
+
+            # Add per 90 indicator if enabled
+            x_label = f"{x_display}" + (" (per 90)" if per_90_mode and x_stat not in ["minutes", "matches"] else "")
+            y_label = f"{y_display}" + (" (per 90)" if per_90_mode and y_stat not in ["minutes", "matches"] else "")
+
+            if x_stat in negative_stats:
+                hover_text += f"{x_label}: {x_val:.2f} ({x_percentile:.0f}% - lower is better)<br>"
+            else:
+                hover_text += f"{x_label}: {x_val:.2f} ({x_percentile:.0f}%)<br>"
+
+            if y_stat in negative_stats:
+                hover_text += f"{y_label}: {y_val:.2f} ({y_percentile:.0f}% - lower is better)<br>"
+            else:
+                hover_text += f"{y_label}: {y_val:.2f} ({y_percentile:.0f}%)<br>"
+
+            # Add additional key stats
+            additional_stats = ["saves", "conceded_goals", "shots_against", "exits"]
+            for stat in additional_stats:
+                if stat != x_stat and stat != y_stat and stat in stats:
+                    stat_val = float(stats[stat])
+                    stat_display = stat.replace('_', ' ').title()
+                    if stat == "conceded_goals":
+                        stat_display = "Goals Conceded"
+                    stat_label = f"{stat_display}" + (" (per 90)" if per_90_mode and stat not in ["minutes", "matches"] else "")
+                    hover_text += f"{stat_label}: {stat_val:.2f}<br>"
+
+            data.append({
+                'name': player,
+                'x': x_percentile,
+                'y': y_percentile,
+                'color': player_color,
+                'text': hover_text,
+                'is_selected': is_selected_player,
+                'marker_size': marker_size,
+                'opacity': opacity,
+                'line_width': line_width,
+                'show_text': show_text
+            })
+
+        if not data:
+            return None
+
+        # Create plotly figure
+        fig = go.Figure()
+
+        # Add quadrant lines
+        fig.add_shape(
+            type="line", x0=0, y0=50, x1=100, y1=50,
+            line=dict(color="#666666", width=1)
+        )
+        fig.add_shape(
+            type="line", x0=50, y0=0, x1=50, y1=100,
+            line=dict(color="#666666", width=1)
+        )
+
+        # Generate quadrant descriptions for goalkeepers
+        def get_gk_quadrant_descriptions(x_stat, y_stat):
+            # Define goalkeeper role descriptions
+            role_descriptions = {
+                "saves": {
+                    "high": "Active Shot Stopper",
+                    "low": "Protected Keeper"
+                },
+                "conceded_goals": {
+                    "high": "Vulnerable Defense",  # Note: this is inverted due to negative stat
+                    "low": "Solid Defense"
+                },
+                "shots_against": {
+                    "high": "Busy Keeper",
+                    "low": "Protected Keeper"
+                },
+                "xcg": {
+                    "high": "Under Pressure",  # Note: this is inverted due to negative stat
+                    "low": "Well Protected"
+                },
+                "saves_with_reflexes": {
+                    "high": "Reflex Specialist",
+                    "low": "Positional Keeper"
+                },
+                "exits": {
+                    "high": "Sweeper Keeper",
+                    "low": "Line Keeper"
+                },
+                "goal_kicks": {
+                    "high": "Long Ball Distributor",
+                    "low": "Short Passing Keeper"
+                },
+                "long_passes_accurate": {
+                    "high": "Ball Playing Keeper",
+                    "low": "Traditional Keeper"
+                },
+                "short_passes_accurate": {
+                    "high": "Build-up Specialist",
+                    "low": "Direct Distributor"
+                }
+            }
+
+            # Check if stats are negative
+            x_is_negative = x_stat in negative_stats
+            y_is_negative = y_stat in negative_stats
+
+            # Get descriptions accounting for negative stats
+            if x_is_negative:
+                x_high = role_descriptions.get(x_stat, {}).get("low", f"Low {x_stat.replace('_', ' ').title()}")
+                x_low = role_descriptions.get(x_stat, {}).get("high", f"High {x_stat.replace('_', ' ').title()}")
+            else:
+                x_high = role_descriptions.get(x_stat, {}).get("high", f"High {x_stat.replace('_', ' ').title()}")
+                x_low = role_descriptions.get(x_stat, {}).get("low", f"Low {x_stat.replace('_', ' ').title()}")
+
+            if y_is_negative:
+                y_high = role_descriptions.get(y_stat, {}).get("low", f"Low {y_stat.replace('_', ' ').title()}")
+                y_low = role_descriptions.get(y_stat, {}).get("high", f"High {y_stat.replace('_', ' ').title()}")
+            else:
+                y_high = role_descriptions.get(y_stat, {}).get("high", f"High {y_stat.replace('_', ' ').title()}")
+                y_low = role_descriptions.get(y_stat, {}).get("low", f"Low {y_stat.replace('_', ' ').title()}")
+
+            return [
+                dict(x=25, y=75, text=f"{x_low}<br>{y_high}", showarrow=False,
+                     font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
+                dict(x=75, y=75, text=f"{x_high}<br>{y_high}", showarrow=False,
+                     font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
+                dict(x=25, y=25, text=f"{x_low}<br>{y_low}", showarrow=False,
+                     font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
+                dict(x=75, y=25, text=f"{x_high}<br>{y_low}", showarrow=False,
+                     font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center")
+            ]
+
+        # Add quadrant descriptions
+        fig.update_layout(annotations=get_gk_quadrant_descriptions(x_stat, y_stat))
+
+        # Add scatter points for each player
+        for player in data:
+            # Determine mode based on whether to show text
+            mode = "markers+text" if player['show_text'] else "markers"
+
+            fig.add_trace(
+                go.Scatter(
+                    x=[player['x']],
+                    y=[player['y']],
+                    mode=mode,
+                    marker=dict(
+                        color=player['color'],
+                        size=player['marker_size'],
+                        opacity=player['opacity'],
+                        line=dict(width=player['line_width'], color="#222")
+                    ),
+                    text=player['name'] if player['show_text'] else "",
+                    textposition="bottom center",
+                    textfont=dict(
+                        color="white",
+                        size=15 if player['is_selected'] else 10,
+                        family="Arial Black, Arial, sans-serif"
+                    ),
+                    hoverinfo="text",
+                    hovertext=player['text'],
+                    name=player['name'],
+                    showlegend=False
+                )
+            )
+
+        # Format axis labels
+        x_display = x_stat.replace('_', ' ').title()
+        y_display = y_stat.replace('_', ' ').title()
+
+        if x_stat == "conceded_goals":
+            x_display = "Goals Conceded"
+        elif x_stat == "xcg":
+            x_display = "xCG"
+        elif x_stat == "saves_with_reflexes":
+            x_display = "Saves with Reflexes"
+        elif x_stat == "long_passes_accurate":
+            x_display = "Long Passes Accurate"
+
+        if y_stat == "conceded_goals":
+            y_display = "Goals Conceded"
+        elif y_stat == "xcg":
+            y_display = "xCG"
+        elif y_stat == "saves_with_reflexes":
+            y_display = "Saves with Reflexes"
+        elif y_stat == "long_passes_accurate":
+            y_display = "Long Passes Accurate"
+
+        # Add title with per90 indication if enabled
+        title_text = "Goalkeeper Performance Classification"
+        if per_90_mode:
+            title_text += " (Per 90 Minutes)"
+
+        # Configure the layout
+        fig.update_layout(
+            plot_bgcolor="#333333",
+            paper_bgcolor="#333333",
+            width=800,
+            height=600,
+            xaxis=dict(
+                title=dict(text=x_display.upper() + (" (PER 90)" if per_90_mode and x_stat not in ["minutes", "matches"] else ""),
+                         font=dict(color="#CCCCCC", size=18)),
+                range=[0, 100],
+                gridcolor="#444444",
+                zerolinecolor="#444444",
+                tickfont=dict(color="#CCCCCC"),
+                showline=True,
+                linecolor="#666666",
+                tickmode='array',
+                tickvals=[0, 25, 50, 75, 100],
+                ticktext=['0%', '25%', '50%', '75%', '100%']
+            ),
+            yaxis=dict(
+                title=dict(text=y_display.upper() + (" (PER 90)" if per_90_mode and y_stat not in ["minutes", "matches"] else ""),
+                         font=dict(color="#CCCCCC", size=18)),
+                range=[0, 100],
+                gridcolor="#444444",
+                zerolinecolor="#444444",
+                tickfont=dict(color="#CCCCCC", size=16),
+                showline=True,
+                linecolor="#666666",
+                tickmode='array',
+                tickvals=[0, 25, 50, 75, 100],
+                ticktext=['0%', '25%', '50%', '75%', '100%']
+            ),
+            showlegend=False,
+            margin=dict(l=60, r=60, t=60, b=60),
+            hoverlabel=dict(
+                bgcolor="#444444",
+                font_size=14,
+                font_color="white"
+            ),
+            title=dict(
+                text=title_text,
+                font=dict(color="#FFFFFF", size=22),
+                y=0.95
+            ),
+        )
+
+        return fig
+
+    # Add configuration options for scatter plot
+    include_additional_players = st.checkbox("Include Additional Players from Competition", value=False,
+                                            help="Add other players from selected competition for better context")
+
+    # Additional competition selection if including other players
+    additional_competition = None
+    if include_additional_players:
+        # Get available competitions from the original filtered data
+        if hasattr(st.session_state, 'filtered_data') and st.session_state.filtered_data:
+            all_competitions = set()
+            for player_data in st.session_state.filtered_data.values():
+                if 'competitions' in player_data:
+                    all_competitions.add(player_data['competitions'])
+            available_comps = sorted(list(all_competitions)) if all_competitions else ["Indonesia Liga 1"]
+        else:
+            available_comps = ["Indonesia Liga 1"]
+
+        additional_competition = st.selectbox(
+            "Select competition for additional players:",
+            options=available_comps,
+            index=0,
+            help="Choose which competition to include additional players from"
+        )
+
+    if selected_players:
+        # Prepare additional players data if requested
+        additional_players_data = None
+        if include_additional_players and additional_competition:
+            # Get additional players from the selected competition
+            # This would need access to the full dataset filtered by global filters
+            additional_players_data = {}
+
+            # Try to get data from session state or data provider
+            if hasattr(st.session_state, 'filtered_data') and st.session_state.filtered_data:
+                for player_name, player_data in st.session_state.filtered_data.items():
+                    if (player_name not in selected_players and
+                        player_data.get('competitions') == additional_competition and
+                        player_data.get('matches', 0) >= 3):  # Minimum matches filter
+
+                        # Apply per 90 conversion if needed
+                        processed_stats = player_data.copy()
+                        if per_90_mode:
+                            # Apply the same per 90 conversion logic
+                            def convert_to_per_90_simple(stats):
+                                converted = stats.copy()
+                                minutes = stats.get("minutes", 0)
+                                if minutes > 0:
+                                    per_90_stats = [
+                                        "conceded_goals", "saves", "shots_against", "xcg",
+                                        "saves_with_reflexes", "exits", "goal_kicks",
+                                        "short_goal_kicks", "long_goal_kicks", "short_passes",
+                                        "short_passes_accurate", "long_passes", "long_passes_accurate"
+                                    ]
+                                    for stat in per_90_stats:
+                                        if stat in converted:
+                                            converted[stat] = (converted[stat] * 90) / minutes
+                                return converted
+
+                            processed_stats = convert_to_per_90_simple(processed_stats)
+
+                        additional_players_data[player_name] = processed_stats
+
+        # Generate and display interactive plotly version
+        plotly_fig = create_gk_scatter_plot(
+            selected_players,
+            player_stats,
+            x_stat,
+            y_stat,
+            per_90_mode=per_90_mode,
+            additional_players_data=additional_players_data
+        )
+
+        if plotly_fig:
+            st.plotly_chart(plotly_fig, use_container_width=True)
+
+            # Add information about additional players if included
+            if include_additional_players and additional_players_data:
+                st.info(f"""
+                **Additional Players Context**:
+
+                The scatter plot includes {len(additional_players_data)} additional players from {additional_competition}
+                (shown in gray) to provide better context for comparison. Selected players are highlighted in color
+                with larger markers and labels.
+
+                - **Selected Players**: Colored markers with labels (comparison players)
+                - **Additional Players**: Gray markers without labels (context players)
+                """)
+
+        # Add information about negative stats
+        if x_stat in ["conceded_goals", "xcg"] or y_stat in ["conceded_goals", "xcg"]:
+            st.info("""
+            **Note about negative statistics:**
+
+            For goalkeeper stats like Goals Conceded and xCG, lower values indicate better performance.
+            These negative stats have been handled appropriately in the visualization:
+            - **Red quadrants**: Higher frequency (poorer performance)
+            - **Green quadrants**: Lower frequency (better performance)
+
+            The percentiles for these stats have been inverted so that higher percentiles
+            consistently represent better performance across all metrics.
+            """)
+    elif not selected_players:
+        st.warning("Please select players to generate the scatter plot.")
 
     st.markdown("---")
 
