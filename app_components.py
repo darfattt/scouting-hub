@@ -54,9 +54,10 @@ def add_global_filters() -> Dict[str, Any]:
 def filter_player_data(data_provider, filters: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """
     Filter player data based on global filters.
+    Works for both goalkeeper and outfield player data.
 
     Args:
-        data_provider: The data provider object
+        data_provider: The data provider object (RAG system)
         filters: Dictionary containing filter settings
 
     Returns:
@@ -94,25 +95,78 @@ def filter_player_data(data_provider, filters: Dict[str, Any]) -> Dict[str, Dict
             # Update match data
             filtered_player["match_data"] = filtered_matches
 
-            # Recalculate aggregate statistics
+            # Recalculate aggregate statistics based on player type
             total_matches = len(filtered_matches)
             total_minutes = sum(match.get("Minutes played", 0) for match in filtered_matches)
-            total_conceded = sum(match.get("Conceded goals", 0) for match in filtered_matches)
-            total_saves = sum(match.get("Saves", 0) for match in filtered_matches)
-            total_shots_against = sum(match.get("Shots against", 0) for match in filtered_matches)
 
-            # Calculate derived metrics
-            save_percentage = (total_saves / total_shots_against * 100) if total_shots_against > 0 else 0
-            goals_conceded_per_90 = (total_conceded / total_minutes * 90) if total_minutes > 0 else 0
+            # Check if this is goalkeeper or outfield player data
+            if "saves" in player_data:  # Goalkeeper data
+                total_conceded = sum(match.get("Conceded goals", 0) for match in filtered_matches)
+                total_saves = sum(match.get("Saves", 0) for match in filtered_matches)
+                total_shots_against = sum(match.get("Shots against", 0) for match in filtered_matches)
 
-            # Update player statistics
-            filtered_player["matches"] = total_matches
-            filtered_player["minutes"] = total_minutes
-            filtered_player["conceded_goals"] = total_conceded
-            filtered_player["saves"] = total_saves
-            filtered_player["shots_against"] = total_shots_against
-            filtered_player["save_percentage"] = save_percentage
-            filtered_player["goals_conceded_per_90"] = goals_conceded_per_90
+                # Calculate derived metrics
+                save_percentage = (total_saves / total_shots_against * 100) if total_shots_against > 0 else 0
+                goals_conceded_per_90 = (total_conceded / total_minutes * 90) if total_minutes > 0 else 0
+
+                # Update player statistics
+                filtered_player["matches"] = total_matches
+                filtered_player["minutes"] = total_minutes
+                filtered_player["conceded_goals"] = total_conceded
+                filtered_player["saves"] = total_saves
+                filtered_player["shots_against"] = total_shots_against
+                filtered_player["save_percentage"] = save_percentage
+                filtered_player["goals_conceded_per_90"] = goals_conceded_per_90
+
+            else:  # Outfield player data
+                total_goals = sum(match.get("Goals", 0) for match in filtered_matches)
+                total_assists = sum(match.get("Assists", 0) for match in filtered_matches)
+                total_shots = sum(match.get("Shots", 0) for match in filtered_matches)
+                total_shots_on_target = sum(match.get("Shots on target", 0) for match in filtered_matches)
+                total_passes = sum(match.get("Passes", 0) for match in filtered_matches)
+                total_passes_accurate = sum(match.get("Passes accurate", 0) for match in filtered_matches)
+                total_dribbles = sum(match.get("Dribbles", 0) for match in filtered_matches)
+                total_dribbles_successful = sum(match.get("Dribbles successful", 0) for match in filtered_matches)
+                total_duels = sum(match.get("Duels", 0) for match in filtered_matches)
+                total_duels_won = sum(match.get("Duels won", 0) for match in filtered_matches)
+                total_interceptions = sum(match.get("Interceptions", 0) for match in filtered_matches)
+                total_recoveries = sum(match.get("Recoveries", 0) for match in filtered_matches)
+
+                # Count cards
+                yellow_cards = sum(1 for match in filtered_matches if match.get('Yellow card', 0) > 0)
+                red_cards = sum(1 for match in filtered_matches if match.get('Red card', 0) > 0)
+
+                # Calculate derived metrics
+                goals_per_90 = (total_goals / total_minutes * 90) if total_minutes > 0 else 0
+                assists_per_90 = (total_assists / total_minutes * 90) if total_minutes > 0 else 0
+                pass_accuracy = (total_passes_accurate / total_passes * 100) if total_passes > 0 else 0
+                shot_accuracy = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
+                dribble_success_rate = (total_dribbles_successful / total_dribbles * 100) if total_dribbles > 0 else 0
+                duel_success_rate = (total_duels_won / total_duels * 100) if total_duels > 0 else 0
+
+                # Update player statistics
+                filtered_player["matches"] = total_matches
+                filtered_player["minutes"] = total_minutes
+                filtered_player["goals"] = total_goals
+                filtered_player["assists"] = total_assists
+                filtered_player["shots"] = total_shots
+                filtered_player["shots_on_target"] = total_shots_on_target
+                filtered_player["passes"] = total_passes
+                filtered_player["passes_accurate"] = total_passes_accurate
+                filtered_player["dribbles"] = total_dribbles
+                filtered_player["dribbles_successful"] = total_dribbles_successful
+                filtered_player["duels"] = total_duels
+                filtered_player["duels_won"] = total_duels_won
+                filtered_player["interceptions"] = total_interceptions
+                filtered_player["recoveries"] = total_recoveries
+                filtered_player["yellow_cards"] = yellow_cards
+                filtered_player["red_cards"] = red_cards
+                filtered_player["goals_per_90"] = goals_per_90
+                filtered_player["assists_per_90"] = assists_per_90
+                filtered_player["pass_accuracy"] = pass_accuracy
+                filtered_player["shot_accuracy"] = shot_accuracy
+                filtered_player["dribble_success_rate"] = dribble_success_rate
+                filtered_player["duel_success_rate"] = duel_success_rate
 
             filtered_data[player_name] = filtered_player
 

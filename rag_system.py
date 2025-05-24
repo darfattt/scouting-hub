@@ -18,7 +18,7 @@ class GoalkeeperRAG:
     def __init__(
         self,
         model_name: str = "deepseek-r1:8b",
-        embeddings_model_name: str = "deepseek-r1:8b",
+        embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store"
     ):
@@ -228,7 +228,7 @@ class OutfieldRAG:
     def __init__(
         self,
         model_name: str = "deepseek-r1:8b",
-        embeddings_model_name: str = "deepseek-r1:8b",
+        embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_outfield",
         position_filter: str = None
@@ -291,11 +291,26 @@ class OutfieldRAG:
         print(f"Created text representations for {len(player_texts)} players")
 
         if not player_texts:
-            print("No player data found.")
+            position_text = f" ({self.position_filter})" if self.position_filter else ""
+            print(f"No player data found{position_text}.")
+            print("This is expected if you only have goalkeeper data and are trying to build outfield RAG systems.")
+
+            # Create an empty vector store to avoid errors
+            from langchain.schema import Document
+            dummy_doc = Document(page_content="No data available", metadata={'player': 'none'})
+            self.vector_store = FAISS.from_documents([dummy_doc], self.embeddings)
+
+            # Save the empty vector store
+            dirname = os.path.dirname(self.vector_store_path)
+            if dirname:
+                os.makedirs(dirname, exist_ok=True)
+            self.vector_store.save_local(self.vector_store_path)
+            print(f"Empty vector store saved to {self.vector_store_path}")
             return
 
         # Convert to documents for the vector store
         print("Converting to documents for vector store...")
+        from langchain.schema import Document
         documents = [
             Document(
                 page_content=item['content'],
@@ -380,6 +395,14 @@ class OutfieldRAG:
         Returns:
             Dictionary containing the answer and source documents
         """
+        # Check if we have any real data
+        if not self.data_processor.player_data:
+            position_text = f" {self.position_filter}" if self.position_filter else " outfield"
+            return {
+                "answer": f"No{position_text} player data is available in the dataset. Please ensure you have the appropriate CSV files with player statistics in the data/stats directory.",
+                "source_documents": []
+            }
+
         qa_chain = self.setup_retrieval_qa()
         result = qa_chain({"query": question})
 
@@ -442,63 +465,72 @@ class OutfieldRAG:
 class ForwardRAG(OutfieldRAG):
     """
     Specialized RAG system for forward players.
+    Includes: CF, RWF, LWF, LAMF, RAMF, etc.
     """
 
     def __init__(
         self,
         model_name: str = "deepseek-r1:8b",
-        embeddings_model_name: str = "deepseek-r1:8b",
+        embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_forwards"
     ):
+        # Forward position codes from Wyscout
+        forward_positions = "CF|RWF|LWF|LAMF|RAMF|AMF|SS|LW|RW"
         super().__init__(
             model_name=model_name,
             embeddings_model_name=embeddings_model_name,
             data_dir=data_dir,
             vector_store_path=vector_store_path,
-            position_filter="Forward"
+            position_filter=forward_positions
         )
 
 
 class MidfielderRAG(OutfieldRAG):
     """
     Specialized RAG system for midfielder players.
+    Includes: CM, CDM, CAM, LCM, RCM, LDMF, RDMF, DMF, etc.
     """
 
     def __init__(
         self,
         model_name: str = "deepseek-r1:8b",
-        embeddings_model_name: str = "deepseek-r1:8b",
+        embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_midfielders"
     ):
+        # Midfielder position codes from Wyscout
+        midfielder_positions = "CM|CDM|CAM|LCM|RCM|LDMF|RDMF|DMF|LCMF|RCMF|CMF|LCMF3|RCMF3"
         super().__init__(
             model_name=model_name,
             embeddings_model_name=embeddings_model_name,
             data_dir=data_dir,
             vector_store_path=vector_store_path,
-            position_filter="Midfielder"
+            position_filter=midfielder_positions
         )
 
 
 class DefenderRAG(OutfieldRAG):
     """
     Specialized RAG system for defender players.
+    Includes: CB, LB, RB, LCB, RCB, LWB, RWB, etc.
     """
 
     def __init__(
         self,
         model_name: str = "deepseek-r1:8b",
-        embeddings_model_name: str = "deepseek-r1:8b",
+        embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_defenders"
     ):
+        # Defender position codes from Wyscout
+        defender_positions = "CB|LB|RB|LCB|RCB|LWB|RWB|LB5|RB5|CB5"
         super().__init__(
             model_name=model_name,
             embeddings_model_name=embeddings_model_name,
             data_dir=data_dir,
             vector_store_path=vector_store_path,
-            position_filter="Defender"
+            position_filter=defender_positions
         )
 
 
@@ -512,26 +544,31 @@ if __name__ == "__main__":
     result = gk_rag.query("Who is the goalkeeper with the highest save percentage?")
     print(f"GK Answer: {result['answer']}")
 
-    print("\nTesting ForwardRAG...")
-    forward_rag = ForwardRAG()
-    forward_rag.build_vector_store(force_rebuild=True)
+    print("\nTesting OutfieldRAG systems...")
+    print("Note: These may show 'No data' if you only have goalkeeper CSV files.")
 
-    # Test a query
-    result = forward_rag.query("Who is the forward with the most goals?")
-    print(f"Forward Answer: {result['answer']}")
+    outfield_systems = [
+        ("ForwardRAG", ForwardRAG, "Who is the forward with the most goals?"),
+        ("MidfielderRAG", MidfielderRAG, "Who is the midfielder with the most assists?"),
+        ("DefenderRAG", DefenderRAG, "Who is the defender with the most interceptions?")
+    ]
 
-    print("\nTesting MidfielderRAG...")
-    midfielder_rag = MidfielderRAG()
-    midfielder_rag.build_vector_store(force_rebuild=True)
+    for system_name, system_class, test_query in outfield_systems:
+        print(f"\nTesting {system_name}...")
+        try:
+            rag = system_class()
+            rag.build_vector_store(force_rebuild=True)
 
-    # Test a query
-    result = midfielder_rag.query("Who is the midfielder with the most assists?")
-    print(f"Midfielder Answer: {result['answer']}")
+            # Test a query
+            result = rag.query(test_query)
+            print(f"{system_name} Answer: {result['answer']}")
 
-    print("\nTesting DefenderRAG...")
-    defender_rag = DefenderRAG()
-    defender_rag.build_vector_store(force_rebuild=True)
+        except Exception as e:
+            print(f"{system_name} Error: {e}")
 
-    # Test a query
-    result = defender_rag.query("Who is the defender with the most interceptions?")
-    print(f"Defender Answer: {result['answer']}")
+    print("\n" + "="*60)
+    print("RAG SYSTEM TEST COMPLETE")
+    print("="*60)
+    print("If you see 'No data' messages for outfield systems,")
+    print("this is normal if you only have goalkeeper CSV files.")
+    print("Add outfield player CSV files to enable those systems.")

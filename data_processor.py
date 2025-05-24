@@ -199,26 +199,52 @@ class OutfieldDataProcessor:
         for file in csv_files:
             # Extract player name from filename
             filename = os.path.basename(file)
-            # Format: "Team - Player Name (Stats).csv"
-            parts = filename.split(" - ")
-            if len(parts) < 2:
-                continue
 
-            team = parts[0]
-            player_name = parts[1].split(" (Stats)")[0]
+            # Handle different filename formats
+            if " - " in filename:
+                # Format: "Team - Player Name (Stats).csv"
+                parts = filename.split(" - ")
+                if len(parts) >= 2:
+                    team = parts[0]
+                    player_name = parts[1].split(" (Stats)")[0]
+                else:
+                    continue
+            elif filename.startswith("Player stats "):
+                # Format: "Player stats Player Name.csv"
+                player_name = filename.replace("Player stats ", "").replace(".csv", "")
+                team = "Unknown"
+            else:
+                # Skip files that don't match expected formats
+                continue
 
             # Read the CSV file
             try:
                 df = pd.read_csv(file)
 
-                # Check if this is outfield player data (has Position column and not goalkeeper)
-                if 'Position' in df.columns:
-                    # Filter out goalkeepers
+                # Check if this is outfield player data
+                # Must have Position column AND outfield-specific columns
+                required_outfield_columns = ['Goals', 'Assists', 'Passes']
+                has_position = 'Position' in df.columns
+                has_outfield_stats = all(col in df.columns for col in required_outfield_columns)
+
+                # Skip if this looks like goalkeeper data
+                goalkeeper_columns = ['Saves', 'Conceded goals', 'Shots against']
+                is_goalkeeper_data = any(col in df.columns for col in goalkeeper_columns)
+
+                # Debug info (can be removed later)
+                # print(f"  File: {filename}")
+                # print(f"    Has position: {has_position}")
+                # print(f"    Has outfield stats: {has_outfield_stats}")
+                # print(f"    Is goalkeeper data: {is_goalkeeper_data}")
+
+                if has_position and has_outfield_stats and not is_goalkeeper_data:
+                    # Filter out goalkeepers by position
                     df = df[~df['Position'].str.contains('Goalkeeper|GK|Goalie', case=False, na=False)]
 
-                    # Apply position filter if specified
+                    # Apply position filter if specified (using regex for exact position matching)
                     if self.position_filter:
-                        df = df[df['Position'].str.contains(self.position_filter, case=False, na=False)]
+                        # Use regex to match exact position codes
+                        df = df[df['Position'].str.contains(self.position_filter, case=False, na=False, regex=True)]
 
                     if not df.empty:
                         # Add team and player name columns
@@ -246,28 +272,34 @@ class OutfieldDataProcessor:
         if self.all_data is None:
             self.load_data()
 
-        if self.all_data.empty:
+        # Handle case where no data was loaded
+        if self.all_data is None or self.all_data.empty:
             return {}
 
         # Group by player
         player_groups = self.all_data.groupby('Player')
 
         for player_name, player_df in player_groups:
-            # Calculate aggregate statistics
+            # Calculate aggregate statistics with safe column access
             total_matches = len(player_df)
-            total_minutes = player_df['Minutes played'].sum()
-            total_goals = player_df['Goals'].sum()
-            total_assists = player_df['Assists'].sum()
-            total_shots = player_df['Shots'].sum()
-            total_shots_on_target = player_df['Shots on target'].sum()
-            total_passes = player_df['Passes'].sum()
-            total_passes_accurate = player_df['Passes accurate'].sum()
-            total_dribbles = player_df['Dribbles'].sum()
-            total_dribbles_successful = player_df['Dribbles successful'].sum()
-            total_duels = player_df['Duels'].sum()
-            total_duels_won = player_df['Duels won'].sum()
-            total_interceptions = player_df['Interceptions'].sum()
-            total_recoveries = player_df['Recoveries'].sum()
+
+            # Helper function to safely sum columns
+            def safe_sum(column_name):
+                return player_df[column_name].sum() if column_name in player_df.columns else 0
+
+            total_minutes = safe_sum('Minutes played')
+            total_goals = safe_sum('Goals')
+            total_assists = safe_sum('Assists')
+            total_shots = safe_sum('Shots')
+            total_shots_on_target = safe_sum('Shots on target')
+            total_passes = safe_sum('Passes')
+            total_passes_accurate = safe_sum('Passes accurate')
+            total_dribbles = safe_sum('Dribbles')
+            total_dribbles_successful = safe_sum('Dribbles successful')
+            total_duels = safe_sum('Duels')
+            total_duels_won = safe_sum('Duels won')
+            total_interceptions = safe_sum('Interceptions')
+            total_recoveries = safe_sum('Recoveries')
 
             # Calculate derived metrics
             goals_per_90 = (total_goals / total_minutes * 90) if total_minutes > 0 else 0
@@ -286,9 +318,9 @@ class OutfieldDataProcessor:
             yellow_cards = 0
             red_cards = 0
             for _, match in player_df.iterrows():
-                if pd.notna(match.get('Yellow card', np.nan)) and match['Yellow card'] > 0:
+                if 'Yellow card' in match and pd.notna(match.get('Yellow card', np.nan)) and match['Yellow card'] > 0:
                     yellow_cards += 1
-                if pd.notna(match.get('Red card', np.nan)) and match['Red card'] > 0:
+                if 'Red card' in match and pd.notna(match.get('Red card', np.nan)) and match['Red card'] > 0:
                     red_cards += 1
 
             # Create player profile
