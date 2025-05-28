@@ -7,7 +7,7 @@ from app_components import (
     add_global_filters,
     filter_player_data
 )
-from outfield_components import render_outfield_player_comparison
+from outfield_components import render_outfield_player_comparison, render_outfield_player_search, render_outfield_performance_analysis
 
 # Set page configuration
 st.set_page_config(
@@ -156,7 +156,10 @@ if page == "AI Assistant":
 
 # Player Search page
 elif page == "Player Search":
-    render_player_search(rag, filtered_data)
+    if position_type == "Goalkeepers":
+        render_player_search(rag, filtered_data)
+    else:
+        render_outfield_player_search(rag, filtered_data, position_type)
 
 # Player Comparison page
 elif page == "Player Comparison":
@@ -167,7 +170,10 @@ elif page == "Player Comparison":
 
 # Performance Analysis page
 elif page == "Performance Analysis":
-    render_performance_analysis(rag, filtered_data)
+    if position_type == "Goalkeepers":
+        render_performance_analysis(rag, filtered_data)
+    else:
+        render_outfield_performance_analysis(rag, filtered_data, position_type)
 
 # Footer
 st.markdown("---")
