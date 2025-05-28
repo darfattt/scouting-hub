@@ -69,30 +69,59 @@ def render_outfield_player_comparison(rag, filtered_data, position_type="All"):
         st.info("Please select at least 2 players to compare.")
         return
 
-    # Get available competitions
-    available_competitions = set()
-    for player in selected_players:
-        if player in filtered_data:
-            player_data = filtered_data[player]
-            if 'competitions' in player_data:
-                available_competitions.add(player_data['competitions'])
-
-    available_competitions = sorted(list(available_competitions))
-
     # Competition selection for each selected player
     player_competitions = {}
-    if available_competitions and selected_players:
+    if selected_players:
         cols = st.columns(len(selected_players))
         for i, (col, player) in enumerate(zip(cols, selected_players)):
             with col:
                 st.write(f"**{player}**")
+
+                # Get competitions only for this specific player
+                player_data = filtered_data.get(player, {})
+                player_competition_dates = {}
+                player_competitions_set = set()
+
+                # Extract competitions from this player's match data with their dates
+                for match in player_data.get("match_data", []):
+                    competition = match.get("Competition")
+                    match_date = match.get("Date")
+                    if competition:
+                        player_competitions_set.add(competition)
+                        # Track the latest date for each competition for this player
+                        if competition not in player_competition_dates or (match_date and match_date > player_competition_dates.get(competition, "")):
+                            player_competition_dates[competition] = match_date
+
+                # Sort this player's competitions by latest date (most recent first)
+                if player_competitions_set:
+                    player_available_competitions = sorted(list(player_competitions_set),
+                                                         key=lambda comp: player_competition_dates.get(comp, ""),
+                                                         reverse=True)
+                    # Add "All" option at the beginning
+                    player_available_competitions = ["All"] + player_available_competitions
+
+                    # Get the latest competition for this player (first non-"All" item)
+                    player_latest_competition = player_available_competitions[1] if len(player_available_competitions) > 1 else "All"
+                else:
+                    player_available_competitions = ["All"]
+                    player_latest_competition = "All"
+
                 selected_comps = st.multiselect(
                     f"Competitions for {player}:",
-                    available_competitions,
-                    default=available_competitions,  # Default to all competitions
-                    key=f"comp_{player}_{i}"
+                    player_available_competitions,
+                    default=[player_latest_competition],  # Default to this player's latest competition
+                    key=f"comp_{player}_{i}",
+                    help="Select 'All' to include all competitions this player played, or choose specific competitions"
                 )
-                player_competitions[player] = selected_comps if selected_comps else available_competitions
+
+                # Handle "All" selection for this specific player
+                if "All" in selected_comps:
+                    # If "All" is selected, use all competitions this player played (except "All" itself)
+                    actual_competitions = [comp for comp in player_available_competitions if comp != "All"]
+                    player_competitions[player] = actual_competitions
+                else:
+                    # Use selected competitions, fallback to all player's competitions if none selected
+                    player_competitions[player] = selected_comps if selected_comps else [comp for comp in player_available_competitions if comp != "All"]
 
     # Process player data for comparison
     player_data = {}
@@ -104,7 +133,7 @@ def render_outfield_player_comparison(rag, filtered_data, position_type="All"):
             raw_data = filtered_data[player]
 
             # Filter match data by selected competitions
-            selected_comps = player_competitions.get(player, available_competitions)
+            selected_comps = player_competitions.get(player, [])
             filtered_matches = []
 
             for match in raw_data.get("match_data", []):
@@ -455,6 +484,10 @@ def create_outfield_player_chart(player_name, player_info, player_stats, percent
         for metric_name, metric_info in metrics.items():
             key = metric_info["key"]
             max_value = metric_info["max_value"]
+
+            # Skip minutes played in per 90 mode since it doesn't make sense to show total minutes
+            if player_info.get('per_90_mode', False) and key == 'minutes':
+                continue
 
             # Get actual value
             actual_value = player_stats.get(key, 0)
@@ -1319,6 +1352,10 @@ def generate_outfield_comparison_chart(player_name, player_stats, player_info, m
 
         # Process metrics in this category
         for metric_name, metric_info in metrics.items():
+            # Skip minutes played in per 90 mode since it doesn't make sense to show total minutes
+            if player_info.get('per_90_mode', False) and metric_info['key'] == 'minutes':
+                continue
+
             # Get actual value
             actual_value = player_stats.get(metric_info['key'], 0)
 
@@ -1368,6 +1405,47 @@ def generate_outfield_comparison_chart(player_name, player_stats, player_info, m
             else:
                 # Fallback to using max_value from metric_info
                 max_val = metric_info.get('max_value', 1)
+
+                # Adjust max_value for per 90 mode (except for minutes and matches)
+                metric_key = metric_info['key']
+                if player_info.get('per_90_mode', False) and metric_key not in ['minutes', 'matches']:
+                    # For per 90 stats, use smaller max values
+                    per_90_max_adjustments = {
+                        # General
+                        'total_actions': 100.0,           # Max ~100 total actions per 90
+                        'total_actions_successful': 85.0, # Max ~85 successful actions per 90
+                        # Offensive
+                        'goals': 3.0,                     # Max ~3 goals per 90
+                        'assists': 2.0,                   # Max ~2 assists per 90
+                        'shots': 8.0,                     # Max ~8 shots per 90
+                        'shots_on_target': 5.0,           # Max ~5 shots on target per 90
+                        'xg': 2.0,                        # Max ~2 xG per 90
+                        # Passing
+                        'passes': 80.0,                   # Max ~80 passes per 90
+                        'passes_accurate': 70.0,          # Max ~70 accurate passes per 90
+                        'long_passes': 15.0,              # Max ~15 long passes per 90
+                        'long_passes_accurate': 10.0,     # Max ~10 accurate long passes per 90
+                        # Crossing
+                        'crosses': 8.0,                   # Max ~8 crosses per 90
+                        'crosses_accurate': 3.0,          # Max ~3 accurate crosses per 90
+                        # Dribbling
+                        'dribbles': 10.0,                 # Max ~10 dribbles per 90
+                        'dribbles_successful': 6.0,       # Max ~6 successful dribbles per 90
+                        # Dueling
+                        'duels': 20.0,                    # Max ~20 duels per 90
+                        'duels_won': 12.0,                # Max ~12 duels won per 90
+                        'aerial_duels': 8.0,              # Max ~8 aerial duels per 90
+                        'aerial_duels_won': 5.0,          # Max ~5 aerial duels won per 90
+                        # Defensive
+                        'interceptions': 8.0,             # Max ~8 interceptions per 90
+                        'losses': 15.0,                   # Max ~15 losses per 90
+                        'losses_own_half': 8.0,           # Max ~8 losses in own half per 90
+                        'recoveries': 12.0,               # Max ~12 recoveries per 90
+                        'recoveries_opp_half': 6.0        # Max ~6 recoveries in opp half per 90
+                    }
+                    if metric_key in per_90_max_adjustments:
+                        max_val = per_90_max_adjustments[metric_key]
+
                 normalized_value = min(100, (actual_value / max_val) * 100)
 
             # Ensure minimum bar length for visibility
