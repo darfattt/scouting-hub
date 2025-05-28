@@ -37,21 +37,45 @@ class GoalkeeperDataProcessor:
         for file in csv_files:
             # Extract player name from filename
             filename = os.path.basename(file)
-            # Format: "Team - Player Name (Stats).csv"
-            parts = filename.split(" - ")
-            if len(parts) < 2:
-                continue
 
-            team = parts[0]
-            player_name = parts[1].split(" (Stats)")[0]
+            # Handle different filename formats
+            if " - " in filename:
+                # Format: "Team - Player Name (Stats).csv"
+                parts = filename.split(" - ")
+                if len(parts) >= 2:
+                    team = parts[0]
+                    player_name = parts[1].split(" (Stats)")[0]
+                else:
+                    continue
+            elif filename.startswith("Player stats "):
+                # Format: "Player stats Player Name.csv"
+                player_name = filename.replace("Player stats ", "").replace(".csv", "")
+                team = "Unknown"  # We'll try to get team from the data itself
+            else:
+                # Skip files that don't match expected formats
+                print(f"Skipping file with unrecognized format: {filename}")
+                continue
 
             # Read the CSV file
             try:
                 df = pd.read_csv(file)
-                # Add team and player name columns
-                df['Team'] = team
-                df['Player'] = player_name
-                all_data.append(df)
+
+                # Check if this is goalkeeper data by looking for goalkeeper-specific columns
+                goalkeeper_columns = ['Saves', 'Conceded goals', 'Shots against', 'xCG']
+                is_goalkeeper_data = any(col in df.columns for col in goalkeeper_columns)
+
+                if is_goalkeeper_data:
+                    # Try to get team from the data if not already set
+                    if team == "Unknown" and 'Team' in df.columns and not df['Team'].empty:
+                        team = df['Team'].iloc[0]
+
+                    # Add team and player name columns
+                    df['Team'] = team
+                    df['Player'] = player_name
+                    all_data.append(df)
+                    print(f"Loaded goalkeeper data for {player_name} from {team}")
+                else:
+                    print(f"Skipping non-goalkeeper data: {filename}")
             except Exception as e:
                 print(f"Error loading {file}: {e}")
 

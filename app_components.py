@@ -220,20 +220,45 @@ def render_player_search(data_provider, filtered_data=None):
     st.subheader(f"Results: {len(filtered_players)} players found")
 
     if filtered_players:
-        # Create a DataFrame for display
+        # Create a DataFrame for display with enhanced goalkeeper statistics
         data = []
         for player in filtered_players:
             stats = player_data[player]
-            data.append({
+
+            # Build the data row with comprehensive goalkeeper statistics
+            row = {
                 "Player": player,
                 "Team": stats["team"],
                 "Matches": stats["matches"],
                 "Minutes": stats["minutes"],
                 "Goals Conceded": stats["conceded_goals"],
+                "Goals Conceded/90": f"{stats['goals_conceded_per_90']:.2f}",
                 "Saves": stats["saves"],
                 "Save %": f"{stats['save_percentage']:.1f}%",
-                "Goals Conceded/90": f"{stats['goals_conceded_per_90']:.2f}"
-            })
+                "Shots Against": stats.get("shots_against", 0),
+                "Shots Against/90": f"{stats.get('shots_against_per_90', 0):.1f}",
+            }
+
+            # Add league-specific statistics if available
+            if 'xg_against' in stats and stats['xg_against'] > 0:
+                row["xG Against"] = f"{stats['xg_against']:.1f}"
+                row["xG Against/90"] = f"{stats.get('xg_against_per_90', 0):.2f}"
+
+            if 'prevented_goals' in stats:
+                row["Prevented Goals"] = f"{stats['prevented_goals']:.1f}"
+                row["Prevented Goals/90"] = f"{stats.get('prevented_goals_per_90', 0):.3f}"
+
+            if 'clean_sheets' in stats:
+                row["Clean Sheets"] = stats['clean_sheets']
+                row["Clean Sheet %"] = f"{stats.get('clean_sheet_percentage', 0):.1f}%"
+
+            if 'save_rate_percent' in stats and stats['save_rate_percent'] != stats.get('save_percentage', 0):
+                row["Save Rate (League)"] = f"{stats['save_rate_percent']:.1f}%"
+
+            if 'age' in stats and stats['age'] > 0:
+                row["Age"] = stats['age']
+
+            data.append(row)
 
         df = pd.DataFrame(data)
         st.dataframe(df, use_container_width=True)
@@ -246,27 +271,118 @@ def render_player_search(data_provider, filtered_data=None):
 
             stats = player_data[selected_player]
 
-            # Display key metrics
+            # Display key metrics in multiple rows for comprehensive view
+            st.subheader("Key Performance Metrics")
+
+            # First row - Core goalkeeping stats
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Save Percentage", f"{stats['save_percentage']:.1f}%")
             col2.metric("Goals Conceded/90", f"{stats['goals_conceded_per_90']:.2f}")
             col3.metric("Total Saves", stats['saves'])
             col4.metric("Matches Played", stats['matches'])
 
+            # Second row - League statistics (if available)
+            if any(key in stats for key in ['xg_against', 'prevented_goals', 'clean_sheets', 'age']):
+                st.subheader("League Statistics")
+                col1, col2, col3, col4 = st.columns(4)
+
+                if 'xg_against' in stats and stats['xg_against'] > 0:
+                    col1.metric("xG Against", f"{stats['xg_against']:.1f}")
+                    col2.metric("xG Against/90", f"{stats.get('xg_against_per_90', 0):.2f}")
+                else:
+                    col1.metric("xG Against", "N/A")
+                    col2.metric("xG Against/90", "N/A")
+
+                if 'prevented_goals' in stats:
+                    col3.metric("Prevented Goals", f"{stats['prevented_goals']:.2f}")
+                    col4.metric("Prevented Goals/90", f"{stats.get('prevented_goals_per_90', 0):.3f}")
+                else:
+                    col3.metric("Prevented Goals", "N/A")
+                    col4.metric("Prevented Goals/90", "N/A")
+
+            # Third row - Additional league stats
+            if any(key in stats for key in ['clean_sheets', 'save_rate_percent', 'aerial_duels_per_90', 'age']):
+                col1, col2, col3, col4 = st.columns(4)
+
+                if 'clean_sheets' in stats:
+                    col1.metric("Clean Sheets", stats['clean_sheets'])
+                    col2.metric("Clean Sheet %", f"{stats.get('clean_sheet_percentage', 0):.1f}%")
+                else:
+                    col1.metric("Clean Sheets", "N/A")
+                    col2.metric("Clean Sheet %", "N/A")
+
+                if 'save_rate_percent' in stats:
+                    col3.metric("Save Rate (League)", f"{stats['save_rate_percent']:.1f}%")
+                else:
+                    col3.metric("Save Rate (League)", "N/A")
+
+                if 'age' in stats and stats['age'] > 0:
+                    col4.metric("Age", f"{stats['age']} years")
+                else:
+                    col4.metric("Age", "N/A")
+
+            # Fourth row - Additional performance metrics
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Shots Against", stats.get('shots_against', 0))
+            col2.metric("Shots Against/90", f"{stats.get('shots_against_per_90', 0):.1f}")
+
+            if 'aerial_duels_per_90' in stats and stats['aerial_duels_per_90'] > 0:
+                col3.metric("Aerial Duels/90", f"{stats['aerial_duels_per_90']:.1f}")
+            else:
+                col3.metric("Aerial Duels/90", "N/A")
+
+            if 'exits_per_90' in stats:
+                col4.metric("Exits/90", f"{stats['exits_per_90']:.1f}")
+            else:
+                col4.metric("Exits/90", "N/A")
+
             # Display match history
             st.subheader("Match History")
             match_data = pd.DataFrame(stats["match_data"])
 
-            # Select relevant columns
+            # Select relevant columns with enhanced goalkeeper statistics
             display_columns = [
                 "Match", "Competition", "Date", "Minutes played",
-                "Conceded goals", "xCG", "Shots against", "Saves", "Saves with reflexes"
+                "Conceded goals", "xCG", "Shots against", "Saves", "Saves with reflexes",
+                "Exits", "Long passes", "Long passes accurate", "Short passes", "Short passes accurate",
+                "Goal kicks", "Short goal kicks", "Long goal kicks"
             ]
 
             # Display only if these columns exist
             existing_columns = [col for col in display_columns if col in match_data.columns]
             if existing_columns:
-                st.dataframe(match_data[existing_columns].sort_values("Date", ascending=False), use_container_width=True)
+                # Sort by date (most recent first) and display
+                sorted_match_data = match_data[existing_columns].sort_values("Date", ascending=False)
+
+                # Add calculated columns for better analysis
+                if "Saves" in sorted_match_data.columns and "Shots against" in sorted_match_data.columns:
+                    sorted_match_data["Save %"] = (sorted_match_data["Saves"] / sorted_match_data["Shots against"] * 100).round(1)
+                    sorted_match_data["Save %"] = sorted_match_data["Save %"].fillna(0)
+
+                if "Long passes accurate" in sorted_match_data.columns and "Long passes" in sorted_match_data.columns:
+                    sorted_match_data["Long Pass %"] = (sorted_match_data["Long passes accurate"] / sorted_match_data["Long passes"] * 100).round(1)
+                    sorted_match_data["Long Pass %"] = sorted_match_data["Long Pass %"].fillna(0)
+
+                if "Short passes accurate" in sorted_match_data.columns and "Short passes" in sorted_match_data.columns:
+                    sorted_match_data["Short Pass %"] = (sorted_match_data["Short passes accurate"] / sorted_match_data["Short passes"] * 100).round(1)
+                    sorted_match_data["Short Pass %"] = sorted_match_data["Short Pass %"].fillna(0)
+
+                st.dataframe(sorted_match_data, use_container_width=True)
+
+                # Add summary statistics for the match history
+                if len(sorted_match_data) > 1:
+                    st.subheader("Match History Summary")
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    avg_save_pct = sorted_match_data["Save %"].mean() if "Save %" in sorted_match_data.columns else 0
+                    avg_conceded_per_90 = (sorted_match_data["Conceded goals"].sum() / sorted_match_data["Minutes played"].sum() * 90) if sorted_match_data["Minutes played"].sum() > 0 else 0
+                    total_clean_sheets = len(sorted_match_data[sorted_match_data["Conceded goals"] == 0])
+                    clean_sheet_pct = (total_clean_sheets / len(sorted_match_data) * 100) if len(sorted_match_data) > 0 else 0
+
+                    col1.metric("Avg Save %", f"{avg_save_pct:.1f}%")
+                    col2.metric("Avg Conceded/90", f"{avg_conceded_per_90:.2f}")
+                    col3.metric("Clean Sheets", f"{total_clean_sheets}/{len(sorted_match_data)}")
+                    col4.metric("Clean Sheet %", f"{clean_sheet_pct:.1f}%")
             else:
                 st.write("Match data columns not found.")
     else:

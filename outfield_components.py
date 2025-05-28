@@ -151,21 +151,47 @@ def calculate_outfield_stats(matches, per_90_mode=False):
     if not matches:
         return {}
 
-    # Initialize totals
+    # Initialize totals for all comprehensive stats
     total_matches = len(matches)
     total_minutes = sum(match.get('Minutes played', 0) for match in matches)
+
+    # General stats
+    total_actions = sum(match.get('Total actions', 0) for match in matches)
+    total_actions_successful = sum(match.get('Total actions successful', 0) for match in matches)
+
+    # Offensive stats
     total_goals = sum(match.get('Goals', 0) for match in matches)
     total_assists = sum(match.get('Assists', 0) for match in matches)
     total_shots = sum(match.get('Shots', 0) for match in matches)
     total_shots_on_target = sum(match.get('Shots on target', 0) for match in matches)
+    total_xg = sum(match.get('xG', 0) for match in matches)
+
+    # Passing stats
     total_passes = sum(match.get('Passes', 0) for match in matches)
     total_passes_accurate = sum(match.get('Passes accurate', 0) for match in matches)
+    total_long_passes = sum(match.get('Long passes', 0) for match in matches)
+    total_long_passes_accurate = sum(match.get('Long passes accurate', 0) for match in matches)
+
+    # Crossing stats
+    total_crosses = sum(match.get('Crosses', 0) for match in matches)
+    total_crosses_accurate = sum(match.get('Crosses accurate', 0) for match in matches)
+
+    # Dribbling stats
     total_dribbles = sum(match.get('Dribbles', 0) for match in matches)
     total_dribbles_successful = sum(match.get('Dribbles successful', 0) for match in matches)
+
+    # Dueling stats
     total_duels = sum(match.get('Duels', 0) for match in matches)
     total_duels_won = sum(match.get('Duels won', 0) for match in matches)
+    total_aerial_duels = sum(match.get('Aerial duels', 0) for match in matches)
+    total_aerial_duels_won = sum(match.get('Aerial duels won', 0) for match in matches)
+
+    # Defensive stats
     total_interceptions = sum(match.get('Interceptions', 0) for match in matches)
+    total_losses = sum(match.get('Losses', 0) for match in matches)
+    total_losses_own_half = sum(match.get('Losses own half', 0) for match in matches)
     total_recoveries = sum(match.get('Recoveries', 0) for match in matches)
+    total_recoveries_opp_half = sum(match.get('Recoveries opp. half', 0) for match in matches)
 
     # Count cards (yellow and red cards are given as minutes when received)
     yellow_cards = sum(1 for match in matches if match.get('Yellow card', 0) > 0)
@@ -176,24 +202,53 @@ def calculate_outfield_stats(matches, per_90_mode=False):
     team = most_recent_match.get('Team', 'Unknown')
     position = most_recent_match.get('Position', 'Unknown')
 
-    # Calculate base statistics
+    # Calculate comprehensive base statistics
     stats = {
+        # Basic info
         'matches': total_matches,
         'minutes': total_minutes,
         'team': team,
         'position': position,
+
+        # General stats
+        'total_actions': total_actions,
+        'total_actions_successful': total_actions_successful,
+
+        # Offensive stats
         'goals': total_goals,
         'assists': total_assists,
         'shots': total_shots,
         'shots_on_target': total_shots_on_target,
+        'xg': total_xg,
+
+        # Passing stats
         'passes': total_passes,
         'passes_accurate': total_passes_accurate,
+        'long_passes': total_long_passes,
+        'long_passes_accurate': total_long_passes_accurate,
+
+        # Crossing stats
+        'crosses': total_crosses,
+        'crosses_accurate': total_crosses_accurate,
+
+        # Dribbling stats
         'dribbles': total_dribbles,
         'dribbles_successful': total_dribbles_successful,
+
+        # Dueling stats
         'duels': total_duels,
         'duels_won': total_duels_won,
+        'aerial_duels': total_aerial_duels,
+        'aerial_duels_won': total_aerial_duels_won,
+
+        # Defensive stats
         'interceptions': total_interceptions,
+        'losses': total_losses,
+        'losses_own_half': total_losses_own_half,
         'recoveries': total_recoveries,
+        'recoveries_opp_half': total_recoveries_opp_half,
+
+        # Cards
         'yellow_cards': yellow_cards,
         'red_cards': red_cards
     }
@@ -201,20 +256,35 @@ def calculate_outfield_stats(matches, per_90_mode=False):
     # Apply per 90 conversion if requested
     if per_90_mode and total_minutes > 0:
         per_90_stats = [
-            'goals', 'assists', 'shots', 'shots_on_target', 'passes', 'passes_accurate',
-            'dribbles', 'dribbles_successful', 'duels', 'duels_won',
-            'interceptions', 'recoveries'
+            # General
+            'total_actions', 'total_actions_successful',
+            # Offensive
+            'goals', 'assists', 'shots', 'shots_on_target', 'xg',
+            # Passing
+            'passes', 'passes_accurate', 'long_passes', 'long_passes_accurate',
+            # Crossing
+            'crosses', 'crosses_accurate',
+            # Dribbling
+            'dribbles', 'dribbles_successful',
+            # Dueling
+            'duels', 'duels_won', 'aerial_duels', 'aerial_duels_won',
+            # Defensive
+            'interceptions', 'losses', 'losses_own_half', 'recoveries', 'recoveries_opp_half'
         ]
 
         for stat in per_90_stats:
             if stat in stats:
                 stats[stat] = (stats[stat] * 90) / total_minutes
 
-    # Calculate derived metrics
+    # Calculate comprehensive derived metrics (success rates)
+    stats['total_actions_success_rate'] = (total_actions_successful / total_actions * 100) if total_actions > 0 else 0
     stats['pass_accuracy'] = (total_passes_accurate / total_passes * 100) if total_passes > 0 else 0
-    stats['shot_accuracy'] = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
+    stats['long_pass_accuracy'] = (total_long_passes_accurate / total_long_passes * 100) if total_long_passes > 0 else 0
+    stats['cross_accuracy'] = (total_crosses_accurate / total_crosses * 100) if total_crosses > 0 else 0
     stats['dribble_success_rate'] = (total_dribbles_successful / total_dribbles * 100) if total_dribbles > 0 else 0
     stats['duel_success_rate'] = (total_duels_won / total_duels * 100) if total_duels > 0 else 0
+    stats['aerial_duel_success_rate'] = (total_aerial_duels_won / total_aerial_duels * 100) if total_aerial_duels > 0 else 0
+    stats['shot_accuracy'] = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
 
     return stats
 
