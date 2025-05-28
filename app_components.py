@@ -449,6 +449,10 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
 
         # Process metrics in this category
         for metric_name, metric_info in metrics.items():
+            # Skip minutes played in per 90 mode since it doesn't make sense to show total minutes
+            if player_info.get('per_90_mode', False) and metric_info['key'] == 'minutes':
+                continue
+
             # Get actual value
             actual_value = player_stats.get(metric_info['key'], 0)
 
@@ -512,6 +516,29 @@ def generate_goalkeeper_comparison_chart(player_name, player_stats, player_info,
             else:
                 # Fallback to using max_value from metric_info
                 max_val = metric_info.get('max_value', 1)
+
+                # Adjust max_value for per 90 mode (except for minutes and matches)
+                metric_key = metric_info['key']
+                if player_info.get('per_90_mode', False) and metric_key not in ['minutes', 'matches']:
+                    # For per 90 stats, use smaller max values
+                    per_90_max_adjustments = {
+                        'conceded_goals': 3.0,  # Max ~3 goals conceded per 90
+                        'saves': 8.0,           # Max ~8 saves per 90
+                        'shots_against': 10.0,  # Max ~10 shots against per 90
+                        'xcg': 3.0,             # Max ~3 xCG per 90
+                        'exits': 2.0,           # Max ~2 exits per 90
+                        'saves_with_reflexes': 3.0,  # Max ~3 reflex saves per 90
+                        'goal_kicks': 15.0,     # Max ~15 goal kicks per 90
+                        'short_goal_kicks': 8.0, # Max ~8 short goal kicks per 90
+                        'long_goal_kicks': 8.0,  # Max ~8 long goal kicks per 90
+                        'short_passes': 25.0,   # Max ~25 short passes per 90
+                        'short_passes_accurate': 22.0, # Max ~22 accurate short passes per 90
+                        'long_passes': 20.0,    # Max ~20 long passes per 90
+                        'long_passes_accurate': 12.0   # Max ~12 accurate long passes per 90
+                    }
+                    if metric_key in per_90_max_adjustments:
+                        max_val = per_90_max_adjustments[metric_key]
+
                 normalized_value = min(100, (actual_value / max_val) * 100)
 
             # Ensure minimum bar length for visibility
@@ -789,54 +816,140 @@ def render_player_comparison(data_provider, filtered_data=None):
     st.subheader("Select Competitions (Optional)")
     st.info("Select specific competitions to filter player data. Leave empty to include all competitions.")
 
-    # Get all available competitions from the data
-    all_competitions = set()
-    for player_name, stats in player_data.items():
-        if 'competitions' in stats and stats['competitions']:
-            if isinstance(stats['competitions'], list):
-                all_competitions.update(stats['competitions'])
-            else:
-                all_competitions.add(stats['competitions'])
-
-    available_competitions = sorted(list(all_competitions)) if all_competitions else ["Indonesia Liga 1"]
-
     # Competition selection for each selected player
     player_competitions = {}
-    if available_competitions and selected_players:
+    if selected_players:
         cols = st.columns(len(selected_players))
         for i, (col, player) in enumerate(zip(cols, selected_players)):
             with col:
                 st.write(f"**{player}**")
+
+                # Get competitions only for this specific player
+                player_stats = player_data.get(player, {})
+                player_competition_dates = {}
+                player_competitions_set = set()
+
+                # Extract competitions from this player's match data with their dates
+                for match in player_stats.get("match_data", []):
+                    competition = match.get("Competition")
+                    match_date = match.get("Date")
+                    if competition:
+                        player_competitions_set.add(competition)
+                        # Track the latest date for each competition for this player
+                        if competition not in player_competition_dates or (match_date and match_date > player_competition_dates.get(competition, "")):
+                            player_competition_dates[competition] = match_date
+
+                # Sort this player's competitions by latest date (most recent first)
+                if player_competitions_set:
+                    player_available_competitions = sorted(list(player_competitions_set),
+                                                         key=lambda comp: player_competition_dates.get(comp, ""),
+                                                         reverse=True)
+                    # Add "All" option at the beginning
+                    player_available_competitions = ["All"] + player_available_competitions
+
+                    # Get the latest competition for this player (first non-"All" item)
+                    player_latest_competition = player_available_competitions[1] if len(player_available_competitions) > 1 else "All"
+                else:
+                    player_available_competitions = ["All"]
+                    player_latest_competition = "All"
+
                 selected_comps = st.multiselect(
                     f"Competitions for {player}:",
-                    available_competitions,
-                    default=available_competitions,  # Default to all competitions
-                    key=f"comp_{player}_{i}"
+                    player_available_competitions,
+                    default=[player_latest_competition],  # Default to this player's latest competition
+                    key=f"comp_{player}_{i}",
+                    help="Select 'All' to include all competitions this player played, or choose specific competitions"
                 )
-                player_competitions[player] = selected_comps if selected_comps else available_competitions
+
+                # Handle "All" selection for this specific player
+                if "All" in selected_comps:
+                    # If "All" is selected, use all competitions this player played (except "All" itself)
+                    actual_competitions = [comp for comp in player_available_competitions if comp != "All"]
+                    player_competitions[player] = actual_competitions
+                else:
+                    # Use selected competitions, fallback to all player's competitions if none selected
+                    player_competitions[player] = selected_comps if selected_comps else [comp for comp in player_available_competitions if comp != "All"]
 
     # Get player stats with competition filtering
     player_stats = []
     for player in selected_players:
-        stats = player_data.get(player)
-        if stats:
-            # Apply competition filtering if competitions are selected
-            if player in player_competitions and player_competitions[player]:
-                # Create a filtered version of stats based on selected competitions
-                filtered_stats = stats.copy()
+        raw_data = player_data.get(player)
+        if raw_data:
+            selected_comps = player_competitions.get(player, [])
 
-                # If the player has competition-specific data, filter it
-                # For now, we'll use the original stats as the data structure doesn't separate by competition
-                # This is a placeholder for future enhancement when competition-specific data is available
+            # Filter match data by selected competitions
+            filtered_matches = []
+            for match in raw_data.get("match_data", []):
+                if match.get("Competition") in selected_comps or not selected_comps:
+                    filtered_matches.append(match)
 
-                # Note: The current data structure doesn't separate stats by competition
-                # This feature is prepared for when competition-specific data becomes available
-                filtered_stats['selected_competitions'] = player_competitions[player]
-                player_stats.append(filtered_stats)
+            if not filtered_matches:
+                st.warning(f"No matches found for {player} in selected competitions.")
+                continue
+
+            # Recalculate statistics from filtered matches
+            filtered_stats = {
+                'name': player,
+                'team': raw_data['team'],
+                'position': raw_data.get('position', 'GK'),
+                'matches': len(filtered_matches),
+                'selected_competitions': selected_comps
+            }
+
+            # Helper function to safely sum columns from filtered matches
+            def safe_sum_filtered(column_name):
+                return sum(match.get(column_name, 0) for match in filtered_matches if match.get(column_name) is not None)
+
+            # Calculate aggregate statistics from filtered matches
+            filtered_stats['minutes'] = safe_sum_filtered('Minutes played')
+            filtered_stats['conceded_goals'] = safe_sum_filtered('Conceded goals')
+            filtered_stats['xcg'] = safe_sum_filtered('xCG')
+            filtered_stats['shots_against'] = safe_sum_filtered('Shots against')
+            filtered_stats['saves'] = safe_sum_filtered('Saves')
+            filtered_stats['saves_with_reflexes'] = safe_sum_filtered('Saves with reflexes')
+            filtered_stats['exits'] = safe_sum_filtered('Exits')
+            filtered_stats['long_passes'] = safe_sum_filtered('Long passes')
+            filtered_stats['long_passes_accurate'] = safe_sum_filtered('Long passes accurate')
+            filtered_stats['short_passes'] = safe_sum_filtered('Short passes')
+            filtered_stats['short_passes_accurate'] = safe_sum_filtered('Short passes accurate')
+            filtered_stats['goal_kicks'] = safe_sum_filtered('Goal kicks')
+            filtered_stats['short_goal_kicks'] = safe_sum_filtered('Short goal kicks')
+            filtered_stats['long_goal_kicks'] = safe_sum_filtered('Long goal kicks')
+
+            # Calculate derived metrics
+            if filtered_stats['shots_against'] > 0:
+                filtered_stats['save_percentage'] = (filtered_stats['saves'] / filtered_stats['shots_against'] * 100)
             else:
-                # Use all data if no specific competitions selected
-                stats['selected_competitions'] = available_competitions
-                player_stats.append(stats)
+                filtered_stats['save_percentage'] = 0
+
+            if filtered_stats['minutes'] > 0:
+                filtered_stats['goals_conceded_per_90'] = (filtered_stats['conceded_goals'] / filtered_stats['minutes'] * 90)
+                filtered_stats['xcg_per_90'] = (filtered_stats['xcg'] / filtered_stats['minutes'] * 90)
+            else:
+                filtered_stats['goals_conceded_per_90'] = 0
+                filtered_stats['xcg_per_90'] = 0
+
+            # Calculate accuracy percentages
+            if filtered_stats['long_passes'] > 0:
+                filtered_stats['long_pass_accuracy'] = (filtered_stats['long_passes_accurate'] / filtered_stats['long_passes'] * 100)
+            else:
+                filtered_stats['long_pass_accuracy'] = 0
+
+            if filtered_stats['short_passes'] > 0:
+                filtered_stats['short_pass_accuracy'] = (filtered_stats['short_passes_accurate'] / filtered_stats['short_passes'] * 100)
+            else:
+                filtered_stats['short_pass_accuracy'] = 0
+
+            # Add league statistics if available (from original data)
+            for league_stat in ['xg_against', 'xg_against_per_90', 'prevented_goals', 'prevented_goals_per_90',
+                              'clean_sheets', 'save_rate_percent', 'aerial_duels_per_90', 'age']:
+                if league_stat in raw_data:
+                    filtered_stats[league_stat] = raw_data[league_stat]
+
+            # Store filtered match data for reference
+            filtered_stats['match_data'] = filtered_matches
+
+            player_stats.append(filtered_stats)
         else:
             st.error(f"Player {player} not found")
             return
@@ -847,17 +960,22 @@ def render_player_comparison(data_provider, filtered_data=None):
     if len(selected_players) == 0:
         st.warning("Please select at least one player to compare.")
         return
-    elif len(selected_players) == 1:
-        st.subheader(f"Player Analysis: {selected_players[0]}")
-    elif len(selected_players) == 2:
-        st.subheader(f"Comparison: {selected_players[0]} vs {selected_players[1]}")
+    elif not player_stats:
+        st.warning("No valid player data found for the selected competitions.")
+        return
+    elif len(player_stats) == 1:
+        st.subheader(f"Player Analysis: {player_stats[0]['name']}")
+    elif len(player_stats) == 2:
+        st.subheader(f"Comparison: {player_stats[0]['name']} vs {player_stats[1]['name']}")
     else:
-        st.subheader(f"Comparison: {selected_players[0]} vs {selected_players[1]} vs {selected_players[2]}")
+        player_names = [stats['name'] for stats in player_stats]
+        st.subheader(f"Comparison: {' vs '.join(player_names)}")
 
     # Display selected competitions info
     if player_competitions:
         with st.expander("Selected Competitions", expanded=False):
-            for player in selected_players:
+            for stats in player_stats:
+                player = stats['name']
                 if player in player_competitions:
                     comps = player_competitions[player]
                     st.write(f"**{player}**: {', '.join(comps) if comps else 'All competitions'}")
@@ -918,27 +1036,37 @@ def render_player_comparison(data_provider, filtered_data=None):
 
         return converted_stats
 
-    # Calculate additional metrics for each player
+    # Calculate additional metrics for each player (only for missing data)
     for i, stats in enumerate(player_stats):
         # Calculate derived metrics based on available data
         matches = stats["matches"]
         saves = stats["saves"]
 
-        # Calculate approximate values for missing metrics (before per 90 conversion)
-        player_stats[i]["long_goal_kicks"] = int(matches * 3.5)  # Approx 3.5 long goal kicks per match
-        player_stats[i]["short_goal_kicks"] = int(matches * 2.5)  # Approx 2.5 short goal kicks per match
-        player_stats[i]["goal_kicks"] = player_stats[i]["long_goal_kicks"] + player_stats[i]["short_goal_kicks"]
+        # Only calculate approximate values for missing metrics (use actual data when available)
+        if stats.get("long_goal_kicks", 0) == 0:
+            player_stats[i]["long_goal_kicks"] = int(matches * 3.5)  # Approx 3.5 long goal kicks per match
+        if stats.get("short_goal_kicks", 0) == 0:
+            player_stats[i]["short_goal_kicks"] = int(matches * 2.5)  # Approx 2.5 short goal kicks per match
+        if stats.get("goal_kicks", 0) == 0:
+            player_stats[i]["goal_kicks"] = player_stats[i]["long_goal_kicks"] + player_stats[i]["short_goal_kicks"]
 
-        player_stats[i]["long_passes"] = int(matches * 15)  # Approx 15 long passes per match
-        player_stats[i]["long_passes_accurate"] = int(player_stats[i]["long_passes"] * 0.6)  # 60% accuracy
+        if stats.get("long_passes", 0) == 0:
+            player_stats[i]["long_passes"] = int(matches * 15)  # Approx 15 long passes per match
+        if stats.get("long_passes_accurate", 0) == 0:
+            player_stats[i]["long_passes_accurate"] = int(player_stats[i]["long_passes"] * 0.6)  # 60% accuracy
 
-        player_stats[i]["short_passes"] = int(matches * 20)  # Approx 20 short passes per match
-        player_stats[i]["short_passes_accurate"] = int(player_stats[i]["short_passes"] * 0.85)  # 85% accuracy
+        if stats.get("short_passes", 0) == 0:
+            player_stats[i]["short_passes"] = int(matches * 20)  # Approx 20 short passes per match
+        if stats.get("short_passes_accurate", 0) == 0:
+            player_stats[i]["short_passes_accurate"] = int(player_stats[i]["short_passes"] * 0.85)  # 85% accuracy
 
-        player_stats[i]["exits"] = int(matches * 1.2)  # Approx 1.2 exits per match
-        player_stats[i]["saves_with_reflexes"] = int(saves * 0.3)  # 30% of saves are with reflexes
+        if stats.get("exits", 0) == 0:
+            player_stats[i]["exits"] = int(matches * 1.2)  # Approx 1.2 exits per match
+        if stats.get("saves_with_reflexes", 0) == 0:
+            player_stats[i]["saves_with_reflexes"] = int(saves * 0.3)  # 30% of saves are with reflexes
 
-        player_stats[i]["xcg"] = stats["conceded_goals"] * 0.9  # xCG slightly lower than actual goals
+        if stats.get("xcg", 0) == 0:
+            player_stats[i]["xcg"] = stats["conceded_goals"] * 0.9  # xCG slightly lower than actual goals
 
         # Add missing general stats
         player_stats[i]["total_actions"] = int(saves * 2.5)  # Approx 2.5x saves as total actions
@@ -947,34 +1075,44 @@ def render_player_comparison(data_provider, filtered_data=None):
         # Apply per 90 minutes conversion if enabled
         player_stats[i] = convert_to_per_90(player_stats[i], per_90_mode)
 
-    # Display bar charts for each player
-    actual_players = len(selected_players)
+    # Display bar charts for each player (only for players with valid data)
+    if not player_stats:
+        st.warning("No valid player data found for the selected competitions.")
+        return
+
+    actual_players = len(player_stats)
     cols = st.columns(actual_players)
 
-    for i, (col, player) in enumerate(zip(cols, selected_players)):
+    for i, (col, stats) in enumerate(zip(cols, player_stats)):
         with col:
+            player = stats['name']
             # Create player info dictionary
-            selected_comps = player_stats[i].get('selected_competitions', ['All competitions'])
+            selected_comps = stats.get('selected_competitions', ['All competitions'])
             comp_text = ', '.join(selected_comps) if len(selected_comps) <= 2 else f"{selected_comps[0]} +{len(selected_comps)-1} more"
 
             # Get original stats for display (before per 90 conversion)
             original_stats = player_data.get(player)
 
+            # Use filtered stats for display but show original total stats for context
+            filtered_stats_display = stats
+
             player_info = {
-                "age": "N/A",  # Placeholder age
-                "team": original_stats["team"],
-                "total_matches": original_stats["matches"],
-                "total_minutes": original_stats["minutes"],
-                "total_conceded": original_stats["conceded_goals"],
+                "age": filtered_stats_display.get("age", "N/A"),
+                "team": filtered_stats_display["team"],
+                "total_matches": filtered_stats_display["matches"],  # Use filtered matches
+                "total_minutes": filtered_stats_display["minutes"],  # Use filtered minutes
+                "total_conceded": filtered_stats_display["conceded_goals"],  # Use filtered goals
                 "competitions": comp_text,
-                "per_90_mode": per_90_mode
+                "per_90_mode": per_90_mode,
+                "original_matches": original_stats["matches"],  # Keep original for reference
+                "original_minutes": original_stats["minutes"],  # Keep original for reference
             }
 
             # For consistency, use only the selected players for comparison
             selected_player_stats = player_stats.copy()
 
             # Generate and display the bar chart
-            fig = generate_goalkeeper_comparison_chart(player, player_stats[i], player_info, gk_metrics_by_category, selected_player_stats)
+            fig = generate_goalkeeper_comparison_chart(player, stats, player_info, gk_metrics_by_category, selected_player_stats)
             st.plotly_chart(fig, use_container_width=True)
 
     # Add a table comparison
@@ -1020,32 +1158,33 @@ def render_player_comparison(data_provider, filtered_data=None):
         "Metric": [m["name"] for m in metrics_list]
     })
 
-    # Add data for each player
-    for i, player in enumerate(selected_players):
-        player_data = []
+    # Add data for each player (only for players with valid data)
+    for i, stats in enumerate(player_stats):
+        player = stats['name']
+        player_data_list = []
 
         for metric in metrics_list:
             if metric["format"] == "header":
                 # Add category header
-                player_data.append("")
+                player_data_list.append("")
             else:
                 # Get the value
                 key = metric["key"]
-                value = player_stats[i].get(key, 0)
+                value = stats.get(key, 0)
 
                 # Format the value
                 if metric["format"] == "int":
-                    player_data.append(int(value))
+                    player_data_list.append(int(value))
                 elif metric["format"] == "float1":
-                    player_data.append(f"{value:.1f}")
+                    player_data_list.append(f"{value:.1f}")
                 elif metric["format"] == "float2":
-                    player_data.append(f"{value:.2f}")
+                    player_data_list.append(f"{value:.2f}")
                 elif metric["format"] == "percent":
-                    player_data.append(f"{value:.1f}%")
+                    player_data_list.append(f"{value:.1f}%")
                 else:
-                    player_data.append(value)
+                    player_data_list.append(value)
 
-        comparison_df[player] = player_data
+        comparison_df[player] = player_data_list
 
     # Apply percentile coloring to the comparison table
     def color_percentile(val, metric_name=None):
