@@ -495,6 +495,45 @@ def create_outfield_player_chart(player_name, player_info, player_stats, percent
             # Get percentile
             percentile = percentiles.get(key, 50)
 
+            # Adjust max_value for per 90 mode to get proper bar scaling
+            if player_info.get('per_90_mode', False):
+                # For per 90 stats, use smaller max values for better visual scaling
+                per_90_max_adjustments = {
+                    # General
+                    'total_actions': 100.0,           # Max ~100 total actions per 90
+                    'total_actions_successful': 85.0, # Max ~85 successful actions per 90
+                    # Offensive
+                    'goals': 3.0,                     # Max ~3 goals per 90
+                    'assists': 2.0,                   # Max ~2 assists per 90
+                    'shots': 8.0,                     # Max ~8 shots per 90
+                    'shots_on_target': 5.0,           # Max ~5 shots on target per 90
+                    'xg': 2.0,                        # Max ~2 xG per 90
+                    # Passing
+                    'passes': 80.0,                   # Max ~80 passes per 90
+                    'passes_accurate': 70.0,          # Max ~70 accurate passes per 90
+                    'long_passes': 15.0,              # Max ~15 long passes per 90
+                    'long_passes_accurate': 10.0,     # Max ~10 accurate long passes per 90
+                    # Crossing
+                    'crosses': 8.0,                   # Max ~8 crosses per 90
+                    'crosses_accurate': 3.0,          # Max ~3 accurate crosses per 90
+                    # Dribbling
+                    'dribbles': 10.0,                 # Max ~10 dribbles per 90
+                    'dribbles_successful': 6.0,       # Max ~6 successful dribbles per 90
+                    # Dueling
+                    'duels': 20.0,                    # Max ~20 duels per 90
+                    'duels_won': 12.0,                # Max ~12 duels won per 90
+                    'aerial_duels': 8.0,              # Max ~8 aerial duels per 90
+                    'aerial_duels_won': 5.0,          # Max ~5 aerial duels won per 90
+                    # Defensive
+                    'interceptions': 8.0,             # Max ~8 interceptions per 90
+                    'losses': 15.0,                   # Max ~15 losses per 90
+                    'losses_own_half': 8.0,           # Max ~8 losses in own half per 90
+                    'recoveries': 12.0,               # Max ~12 recoveries per 90
+                    'recoveries_opp_half': 6.0        # Max ~6 recoveries in opp half per 90
+                }
+                if key in per_90_max_adjustments:
+                    max_value = per_90_max_adjustments[key]
+
             # Normalize value for bar length (0-100 scale)
             normalized_value = min(100, (actual_value / max_value) * 100)
             normalized_value = max(5, normalized_value)  # Minimum bar length
