@@ -3037,6 +3037,262 @@ def render_outfield_player_search(rag, filtered_data, position_type):
 
         filtered_players.append(player_name)
 
+    # Role-based search section
+    st.subheader("Search Players by Role")
+
+    # Define role weights for different positions
+    center_forward_role_weights = {
+        "Advance Forward": {
+            "goals": 0.3,
+            "shots": 0.2,
+            "shots_on_target": 0.15,
+            "dribbles_successful": 0.15,
+            "passes": 0.1,
+            "minutes": 0.1
+        },
+        "Pressing Forward": {
+            "duels_won": 0.25,
+            "recoveries": 0.2,
+            "interceptions": 0.2,
+            "goals": 0.15,
+            "shots": 0.1,
+            "duel_success_rate": 0.1
+        },
+        "Deep-lying Forward": {
+            "assists": 0.25,
+            "passes_accurate": 0.25,
+            "pass_accuracy": 0.15,
+            "passes": 0.15,
+            "dribbles": 0.1,
+            "goals": 0.1
+        },
+        "Poacher": {
+            "goals": 0.5,
+            "shots": 0.3,
+            "shots_on_target": 0.2
+        }
+    }
+
+    center_back_role_weights = {
+        "No-Nonsense Centre-Back": {
+            "duels_won": 0.25,
+            "duel_success_rate": 0.2,
+            "recoveries": 0.2,
+            "interceptions": 0.15,
+            "duels": 0.1,
+            "passes_accurate": 0.1
+        },
+        "Central Defender": {
+            "duels_won": 0.2,
+            "duel_success_rate": 0.2,
+            "interceptions": 0.15,
+            "recoveries": 0.15,
+            "passes_accurate": 0.15,
+            "duels": 0.1,
+            "pass_accuracy": 0.05
+        },
+        "Ball Playing Defender": {
+            "passes_accurate": 0.25,
+            "pass_accuracy": 0.2,
+            "passes": 0.15,
+            "duels_won": 0.15,
+            "duel_success_rate": 0.1,
+            "interceptions": 0.1,
+            "recoveries": 0.05
+        }
+    }
+
+    # Determine which role weights to use based on position
+    if position_type == "Forwards":
+        role_weights_dict = center_forward_role_weights
+        role_type = "Center Forward"
+    elif position_type == "Defenders":
+        role_weights_dict = center_back_role_weights
+        role_type = "Center Back"
+    else:
+        role_weights_dict = {}
+        role_type = None
+
+    if role_weights_dict:
+        # Role selection
+        selected_role = st.selectbox(f"Select {role_type.lower()} role:", ["None"] + list(role_weights_dict.keys()))
+
+        if selected_role != "None":
+            # Calculate role scores for all players
+            role_data = []
+            role_weights = role_weights_dict[selected_role]
+
+            # Get all values for normalization
+            all_values = {}
+            for stat in role_weights.keys():
+                all_values[stat] = [filtered_data[p].get(stat, 0) for p in filtered_players]
+
+            for player in filtered_players:
+                stats = filtered_data[player]
+
+                # Calculate weighted score
+                total_score = 0
+                total_weight = 0
+                stat_values = {}
+
+                for stat, weight in role_weights.items():
+                    value = stats.get(stat, 0)
+                    stat_values[stat] = value
+
+                    # Normalize the value (0-100 scale)
+                    max_val = max(all_values[stat]) if all_values[stat] else 1
+                    min_val = min(all_values[stat]) if all_values[stat] else 0
+
+                    if max_val > min_val:
+                        normalized = (value - min_val) / (max_val - min_val) * 100
+                    else:
+                        normalized = 50  # Default if all values are the same
+
+                    total_score += normalized * weight
+                    total_weight += weight
+
+                final_score = total_score / total_weight if total_weight > 0 else 0
+
+                role_data.append({
+                    "Rank": 0,  # Will be set after sorting
+                    "Team": stats.get("team", "Unknown"),
+                    "Player": player,
+                    "Age": stats.get("age", "N/A"),
+                    "Position": stats.get("position", "Unknown"),
+                    "Minutes": stats.get("minutes", 0),
+                    **{stat.replace("_", " ").title(): stat_values[stat] for stat in role_weights.keys()},
+                    "Score": final_score
+                })
+
+            # Sort by score (highest first) and assign ranks
+            role_data.sort(key=lambda x: x["Score"], reverse=True)
+            for i, player_data_item in enumerate(role_data):
+                player_data_item["Rank"] = i + 1
+
+            # Display role ranking
+            if role_data:
+                # Create DataFrame for display
+                df_role = pd.DataFrame(role_data)
+
+                # Create HTML table with embedded bars
+                def create_bar_html(score, max_score):
+                    """Create HTML for embedded bar chart in table cell"""
+                    bar_width = (score / max_score) * 100 if max_score > 0 else 0
+                    return f"""
+                    <div style="display: flex; align-items: center; width: 100%;">
+                        <div style="background: linear-gradient(90deg, #4a90e2 0%, #4a90e2 {bar_width}%, #2a2a2a {bar_width}%, #2a2a2a 100%);
+                                    width: 200px; height: 25px; border-radius: 3px; margin-right: 10px; position: relative;">
+                            <span style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
+                                         color: white; font-weight: bold; font-size: 12px;">
+                                {score:.1f}
+                            </span>
+                        </div>
+                    </div>
+                    """
+
+                max_score = df_role["Score"].max()
+
+                # Create HTML table
+                html_table = f"""
+                <style>
+                .role-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-family: 'Source Sans Pro', sans-serif;
+                    font-size: 14px;
+                    background-color: #1e1e1e;
+                    color: #ffffff;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }}
+                .role-table th {{
+                    background-color: #2d2d2d;
+                    padding: 12px 8px;
+                    text-align: left;
+                    border-bottom: 2px solid #404040;
+                    font-weight: 600;
+                    color: #ffffff;
+                }}
+                .role-table td {{
+                    padding: 10px 8px;
+                    border-bottom: 1px solid #404040;
+                    vertical-align: middle;
+                    background-color: #1e1e1e;
+                }}
+                .role-table tr:hover {{
+                    background-color: #2a2a2a;
+                }}
+                .role-table tr:hover td {{
+                    background-color: #2a2a2a;
+                }}
+                .rank-cell {{
+                    text-align: center;
+                    font-weight: bold;
+                    color: #4a90e2;
+                }}
+                .role-header {{
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                    padding: 15px;
+                    margin: 20px 0 10px 0;
+                    border-radius: 8px 8px 0 0;
+                    font-size: 18px;
+                    font-weight: 600;
+                }}
+                </style>
+                <div class="role-header">Role Ranking - {selected_role}</div>
+                <table class="role-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Team</th>
+                        <th>Player</th>
+                        <th>Age</th>
+                        <th>Position</th>
+                        <th>Minutes</th>
+                """
+
+                # Add headers for calculated parameter stats
+                for stat in role_weights.keys():
+                    stat_display = stat.replace("_", " ").title()
+                    html_table += f"<th>{stat_display}</th>"
+
+                html_table += "<th>Score</th></tr></thead><tbody>"
+
+                # Add data rows
+                for _, row in df_role.iterrows():
+                    html_table += f"""
+                    <tr>
+                        <td class="rank-cell">{row['Rank']}</td>
+                        <td>{row['Team']}</td>
+                        <td><strong>{row['Player']}</strong></td>
+                        <td>{row['Age']}</td>
+                        <td>{row['Position']}</td>
+                        <td>{row['Minutes']}</td>
+                    """
+
+                    # Add calculated parameter stats
+                    for stat in role_weights.keys():
+                        stat_display = stat.replace("_", " ").title()
+                        value = row[stat_display]
+                        if isinstance(value, float):
+                            html_table += f"<td>{value:.1f}</td>"
+                        else:
+                            html_table += f"<td>{value}</td>"
+
+                    # Add score bar
+                    html_table += f"<td>{create_bar_html(row['Score'], max_score)}</td>"
+                    html_table += "</tr>"
+
+                html_table += "</tbody></table>"
+
+                # Display the HTML table
+                st.markdown(html_table, unsafe_allow_html=True)
+            else:
+                st.warning("No players found for role analysis.")
+    else:
+        st.info(f"Role analysis for {position_type} will be implemented with position-specific roles.")
+
     # Display results
     st.subheader(f"Results: {len(filtered_players)} players found")
 
