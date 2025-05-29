@@ -3,11 +3,10 @@ from rag_system import GoalkeeperRAG, ForwardRAG, MidfielderRAG, DefenderRAG, Ou
 from app_components import (
     render_player_search,
     render_player_comparison,
-    render_performance_analysis,
     add_global_filters,
     filter_player_data
 )
-from outfield_components import render_outfield_player_comparison, render_outfield_player_search, render_outfield_performance_analysis
+from outfield_components import render_outfield_player_comparison, render_outfield_player_search
 
 # Set page configuration
 st.set_page_config(
@@ -84,7 +83,7 @@ if rag is None:
     st.stop()
 
 # Page selection
-page = st.sidebar.radio("Select a page", ["AI Assistant", "Player Search", "Player Comparison", "Performance Analysis", "Player Performance", "Player Search Profiler", "Attribute Analysis"])
+page = st.sidebar.radio("Select a page", ["AI Assistant", "Player Search", "Player Comparison", "Player Performance", "Player Search Profiler", "Attribute Analysis"])
 
 # Add global filters to the sidebar
 filters = add_global_filters()
@@ -167,13 +166,6 @@ elif page == "Player Comparison":
         render_player_comparison(rag, filtered_data)
     else:
         render_outfield_player_comparison(rag, filtered_data, position_type)
-
-# Performance Analysis page
-elif page == "Performance Analysis":
-    if position_type == "Goalkeepers":
-        render_performance_analysis(rag, filtered_data)
-    else:
-        render_outfield_performance_analysis(rag, filtered_data, position_type)
 
 # Player Performance page
 elif page == "Player Performance":
