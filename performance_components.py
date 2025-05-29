@@ -8,25 +8,32 @@ from scipy import stats
 
 def render_player_performance(rag, filtered_data, position_type):
     """
-    Render the Player Performance page with two tabs:
+    Render the Player Performance page with enhanced analysis and AI insights:
     1. Overall Player Performance
     2. Multi-Stat Comparison
+    3. AI Performance Insights
     """
     st.header("Player Performance Analysis")
-    st.markdown("Analyze player performances based on key performance metrics.")
+    st.markdown("Analyze player performances with advanced visualizations and AI-powered insights.")
 
     # Create tabs
-    tab1, tab2 = st.tabs(["📊 Overall Player Performance", "📈 Multi-Stat Comparison"])
+    tab1, tab2, tab3 = st.tabs(["📊 Overall Player Performance", "📈 Multi-Stat Comparison", "🤖 AI Performance Insights"])
 
     with tab1:
-        render_overall_performance(filtered_data, position_type)
+        render_overall_performance(rag, filtered_data, position_type)
 
     with tab2:
-        render_multi_stat_comparison(filtered_data, position_type)
+        render_multi_stat_comparison(rag, filtered_data, position_type)
 
-def render_overall_performance(filtered_data, position_type):
+    with tab3:
+        if filtered_data:
+            render_ai_performance_insights(rag, filtered_data, position_type)
+        else:
+            st.info("Please select data from the global filters to use AI Performance Insights.")
+
+def render_overall_performance(rag, filtered_data, position_type):
     """
-    Render the Overall Player Performance tab
+    Render the Overall Player Performance tab with enhanced visualizations
     """
     st.markdown("### Analyze player performances based on key performance metrics")
 
@@ -40,23 +47,21 @@ def render_overall_performance(filtered_data, position_type):
     # Metric selection with categories
     st.markdown("#### 📊 Select a Key Performance Metric")
 
-    # Create organized options
-    metric_options = []
+    # Create flat list of all available metrics (no category headers)
+    all_metrics = []
     for category, metrics in stats_by_category.items():
-        if metrics:  # Only add categories that have available metrics
-            metric_options.append(f"--- {category} ---")
-            metric_options.extend(metrics)
+        if metrics:  # Only add metrics that are available
+            all_metrics.extend(metrics)
+
+    if not all_metrics:
+        st.warning("No performance metrics available for analysis.")
+        return
 
     selected_metric = st.selectbox(
         "Choose metric:",
-        options=metric_options,
+        options=all_metrics,
         help="Select the performance metric to analyze"
     )
-
-    # Skip if a category header is selected
-    if selected_metric.startswith("---"):
-        st.info("Please select a specific metric from the dropdown.")
-        return
 
     # Display options
     col1, col2 = st.columns(2)
@@ -89,9 +94,9 @@ def render_overall_performance(filtered_data, position_type):
         position_type
     )
 
-def render_multi_stat_comparison(filtered_data, position_type):
+def render_multi_stat_comparison(rag, filtered_data, position_type):
     """
-    Render the Multi-Stat Comparison tab
+    Render the Multi-Stat Comparison tab with enhanced scatter plots
     """
     st.markdown("### Compare player performances across multiple statistics")
 
@@ -451,7 +456,7 @@ def generate_multi_stat_comparison(filtered_data, selected_stats, available_stat
 
     # Create scatter plot
     if len(selected_stats) == 2:
-        # 2D scatter plot
+        # 2D scatter plot with different colors for each player
         fig = px.scatter(
             df,
             x=selected_stats[0],
@@ -459,7 +464,8 @@ def generate_multi_stat_comparison(filtered_data, selected_stats, available_stat
             hover_name="Player" if show_player_names else None,
             hover_data=["Team"],
             title=f"Top {num_players} Players: {selected_stats[0]} vs {selected_stats[1]}",
-            color_discrete_sequence=["#1f77b4"]
+            color="Player",  # Different color for each player
+            color_discrete_sequence=px.colors.qualitative.Set3
         )
 
         # Add player names as text if requested
@@ -472,7 +478,7 @@ def generate_multi_stat_comparison(filtered_data, selected_stats, available_stat
                     text=df["Player"],
                     textposition="top center",
                     showlegend=False,
-                    textfont=dict(size=10, color="white")
+                    textfont=dict(size=11, color="white")  # Increased font size from 10 to 11
                 )
             )
 
@@ -499,7 +505,7 @@ def generate_multi_stat_comparison(filtered_data, selected_stats, available_stat
             fig.add_vline(x=median_x, line_dash="dot", line_color="orange", annotation_text="Median X")
 
     else:
-        # 3D scatter plot for 3 stats
+        # 3D scatter plot for 3 stats with different colors for each player
         fig = px.scatter_3d(
             df,
             x=selected_stats[0],
@@ -508,8 +514,24 @@ def generate_multi_stat_comparison(filtered_data, selected_stats, available_stat
             hover_name="Player" if show_player_names else None,
             hover_data=["Team"],
             title=f"Top {num_players} Players: {' vs '.join(selected_stats)}",
-            color_discrete_sequence=["#1f77b4"]
+            color="Player",  # Different color for each player
+            color_discrete_sequence=px.colors.qualitative.Set3
         )
+
+        # Add player names as text if requested
+        if show_player_names:
+            fig.add_trace(
+                go.Scatter3d(
+                    x=df[selected_stats[0]],
+                    y=df[selected_stats[1]],
+                    z=df[selected_stats[2]],
+                    mode="text",
+                    text=df["Player"],
+                    textposition="top center",
+                    showlegend=False,
+                    textfont=dict(size=11, color="white")  # Increased font size from 10 to 11
+                )
+            )
 
     # Update layout
     fig.update_layout(
@@ -526,3 +548,544 @@ def generate_multi_stat_comparison(filtered_data, selected_stats, available_stat
     for stat in selected_stats:
         display_df[stat] = display_df[stat].round(2)
     st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+def render_ai_performance_insights(rag, filtered_data, position_type):
+    """
+    Render AI-powered performance insights and analysis
+    """
+    st.markdown("### 🤖 AI-Powered Performance Analysis")
+    st.markdown("Get intelligent insights about player performances using AI analysis.")
+
+    if not filtered_data:
+        st.warning("No player data available for AI analysis.")
+        return
+
+    # Performance analysis options
+    analysis_options = [
+        "Top Performers Analysis",
+        "Performance Trends Analysis",
+        "Player Comparison Insights",
+        "Tactical Analysis",
+        "Performance Prediction"
+    ]
+
+    selected_analysis = st.selectbox(
+        "Choose AI Analysis Type:",
+        analysis_options,
+        help="Select the type of AI analysis you want to perform"
+    )
+
+    # Player selection for focused analysis
+    players = list(filtered_data.keys())
+
+    # Add a button to start analysis
+    if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
+        if selected_analysis == "Top Performers Analysis":
+            render_top_performers_ai_analysis(rag, filtered_data, position_type)
+        elif selected_analysis == "Performance Trends Analysis":
+            render_performance_trends_ai_analysis(rag, filtered_data, position_type)
+        elif selected_analysis == "Player Comparison Insights":
+            render_player_comparison_ai_insights(rag, filtered_data, position_type, players)
+        elif selected_analysis == "Tactical Analysis":
+            render_tactical_ai_analysis(rag, filtered_data, position_type)
+        elif selected_analysis == "Performance Prediction":
+            render_performance_prediction_ai_analysis(rag, filtered_data, position_type, players)
+    else:
+        st.info(f"Click 'Start Analysis' to begin {selected_analysis}.")
+
+def render_top_performers_ai_analysis(rag, filtered_data, position_type):
+    """
+    AI analysis of top performers with insights
+    """
+    st.markdown("#### 🏆 Top Performers AI Analysis")
+
+    # Get top performers data
+    top_performers_data = get_top_performers_summary(filtered_data, position_type)
+
+    if top_performers_data is None or top_performers_data.empty:
+        st.warning("Insufficient data for top performers analysis.")
+        return
+
+    # Display top performers table
+    st.markdown("##### 📊 Top Performers Summary")
+    st.dataframe(top_performers_data, use_container_width=True, hide_index=True)
+
+    # Generate AI insights
+    col1, col2 = st.columns([2, 1])
+
+    with col2:
+        if st.button("🤖 Generate AI Insights", type="primary", use_container_width=True):
+            with st.spinner("Analyzing top performers..."):
+                # Create analysis prompt
+                analysis_prompt = create_top_performers_analysis_prompt(top_performers_data, position_type)
+
+                # Get AI insights
+                ai_response = rag.query(analysis_prompt)
+
+                with col1:
+                    st.markdown("##### 🧠 AI Performance Insights")
+                    st.markdown(ai_response["answer"])
+
+                    # Show data sources used
+                    with st.expander("📚 Analysis Sources"):
+                        for i, doc in enumerate(ai_response.get("source_documents", [])):
+                            st.markdown(f"**Source {i+1}:** {doc.metadata.get('player', 'Unknown')}")
+                            st.text(doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content)
+
+def render_performance_trends_ai_analysis(rag, filtered_data, position_type):
+    """
+    AI analysis of performance trends
+    """
+    st.markdown("#### 📈 Performance Trends AI Analysis")
+
+    # Performance metrics selection
+    available_stats, _ = get_available_stats_with_categories(filtered_data, position_type)
+
+    if not available_stats:
+        st.warning("No performance metrics available for analysis.")
+        return
+
+    selected_metric = st.selectbox(
+        "Select metric for trend analysis:",
+        list(available_stats.keys()),
+        help="Choose a performance metric to analyze trends"
+    )
+
+    # Generate trend visualization
+    trend_data = generate_performance_trend_data(filtered_data, available_stats[selected_metric], selected_metric)
+
+    if trend_data is not None and not trend_data.empty:
+        # Create trend chart
+        fig = px.histogram(
+            trend_data,
+            x="Value",
+            nbins=20,
+            title=f"{selected_metric} Distribution Analysis",
+            labels={"Value": selected_metric, "count": "Number of Players"}
+        )
+
+        fig.update_layout(
+            height=400,
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # AI trend analysis
+        col1, col2 = st.columns([2, 1])
+
+        with col2:
+            if st.button("🤖 Analyze Trends", type="primary", use_container_width=True):
+                with st.spinner("Analyzing performance trends..."):
+                    # Create trend analysis prompt
+                    trend_prompt = create_trend_analysis_prompt(trend_data, selected_metric, position_type)
+
+                    # Get AI insights
+                    ai_response = rag.query(trend_prompt)
+
+                    with col1:
+                        st.markdown("##### 🧠 AI Trend Analysis")
+                        st.markdown(ai_response["answer"])
+
+def render_player_comparison_ai_insights(rag, filtered_data, position_type, players):
+    """
+    AI-powered player comparison insights
+    """
+    st.markdown("#### ⚖️ Player Comparison AI Insights")
+
+    # Player selection
+    selected_players = st.multiselect(
+        "Select players to compare (2-4 players):",
+        players,
+        default=players[:2] if len(players) >= 2 else [],
+        max_selections=4,
+        help="Choose 2-4 players for AI comparison analysis"
+    )
+
+    if len(selected_players) < 2:
+        st.info("Please select at least 2 players for comparison.")
+        return
+
+    # Display comparison data
+    comparison_data = create_player_comparison_data(filtered_data, selected_players, position_type)
+
+    if comparison_data is not None and not comparison_data.empty:
+        st.markdown("##### 📊 Player Comparison Data")
+        st.dataframe(comparison_data, use_container_width=True, hide_index=True)
+
+        # AI comparison analysis
+        col1, col2 = st.columns([2, 1])
+
+        with col2:
+            if st.button("🤖 Compare Players", type="primary", use_container_width=True):
+                with st.spinner("Analyzing player comparisons..."):
+                    # Create comparison prompt
+                    comparison_prompt = create_player_comparison_prompt(comparison_data, selected_players, position_type)
+
+                    # Get AI insights
+                    ai_response = rag.query(comparison_prompt)
+
+                    with col1:
+                        st.markdown("##### 🧠 AI Comparison Analysis")
+                        st.markdown(ai_response["answer"])
+
+def render_tactical_ai_analysis(rag, filtered_data, position_type):
+    """
+    AI tactical analysis based on player performance data
+    """
+    st.markdown("#### ⚽ Tactical AI Analysis")
+
+    # Tactical analysis options
+    tactical_options = [
+        "Formation Suitability Analysis",
+        "Playing Style Analysis",
+        "Team Balance Analysis",
+        "Positional Strengths & Weaknesses"
+    ]
+
+    selected_tactical = st.selectbox(
+        "Choose tactical analysis:",
+        tactical_options,
+        help="Select the type of tactical analysis"
+    )
+
+    # Generate tactical insights
+    col1, col2 = st.columns([2, 1])
+
+    with col2:
+        if st.button("🤖 Generate Tactical Insights", type="primary", use_container_width=True):
+            with st.spinner("Analyzing tactical aspects..."):
+                # Create tactical analysis prompt
+                tactical_prompt = create_tactical_analysis_prompt(filtered_data, selected_tactical, position_type)
+
+                # Get AI insights
+                ai_response = rag.query(tactical_prompt)
+
+                with col1:
+                    st.markdown("##### 🧠 AI Tactical Analysis")
+                    st.markdown(ai_response["answer"])
+
+def render_performance_prediction_ai_analysis(rag, filtered_data, position_type, players):
+    """
+    AI-powered performance prediction analysis
+    """
+    st.markdown("#### 🔮 Performance Prediction AI Analysis")
+
+    # Player selection for prediction
+    selected_player = st.selectbox(
+        "Select player for performance prediction:",
+        players,
+        help="Choose a player for AI performance prediction analysis"
+    )
+
+    if not selected_player:
+        return
+
+    # Display player current stats
+    player_stats = filtered_data[selected_player]
+
+    # Create current performance summary
+    st.markdown("##### 📊 Current Performance Summary")
+    current_stats_df = create_player_stats_summary(player_stats, position_type)
+    st.dataframe(current_stats_df, use_container_width=True, hide_index=True)
+
+    # AI prediction analysis
+    col1, col2 = st.columns([2, 1])
+
+    with col2:
+        if st.button("🤖 Predict Performance", type="primary", use_container_width=True):
+            with st.spinner("Analyzing performance predictions..."):
+                # Create prediction prompt
+                prediction_prompt = create_performance_prediction_prompt(player_stats, selected_player, position_type)
+
+                # Get AI insights
+                ai_response = rag.query(prediction_prompt)
+
+                with col1:
+                    st.markdown("##### 🧠 AI Performance Prediction")
+                    st.markdown(ai_response["answer"])
+
+# Helper functions for AI analysis
+
+def get_top_performers_summary(filtered_data, position_type):
+    """
+    Create a summary of top performers for AI analysis
+    """
+    if not filtered_data:
+        return None
+
+    # Get key metrics based on position
+    if position_type == "Goalkeepers":
+        key_metrics = ["save_percentage", "saves", "conceded_goals", "minutes"]
+        metric_names = ["Save %", "Saves", "Goals Conceded", "Minutes"]
+    else:
+        key_metrics = ["goals", "assists", "passes_accurate", "duels_won", "minutes"]
+        metric_names = ["Goals", "Assists", "Accurate Passes", "Duels Won", "Minutes"]
+
+    # Create summary data
+    summary_data = []
+    for player_name, stats in filtered_data.items():
+        row = {"Player": player_name, "Team": stats.get("team", "Unknown")}
+
+        for i, metric in enumerate(key_metrics):
+            value = stats.get(metric, 0)
+            if value is not None:
+                row[metric_names[i]] = value
+
+        summary_data.append(row)
+
+    # Convert to DataFrame and sort by first metric
+    if summary_data:
+        df = pd.DataFrame(summary_data)
+        if len(metric_names) > 0:
+            df = df.sort_values(by=metric_names[0], ascending=False).head(10)
+        return df
+
+    return None
+
+def create_top_performers_analysis_prompt(top_performers_data, position_type):
+    """
+    Create AI prompt for top performers analysis
+    """
+    if top_performers_data is None or top_performers_data.empty:
+        return f"Analyze the top {position_type.lower()} based on their performance metrics."
+
+    # Convert DataFrame to text summary
+    data_summary = top_performers_data.to_string(index=False)
+
+    prompt = f"""
+    Analyze the top performing {position_type.lower()} based on the following performance data:
+
+    {data_summary}
+
+    Please provide insights on:
+    1. Who are the standout performers and why?
+    2. What patterns do you see in the top performers' statistics?
+    3. Are there any surprising results or outliers?
+    4. What recommendations would you make for team selection based on this data?
+    5. How do these players compare in terms of consistency vs peak performance?
+
+    Focus on actionable insights for scouts and coaches.
+    """
+
+    return prompt
+
+def generate_performance_trend_data(filtered_data, metric_key, metric_name):
+    """
+    Generate trend data for performance analysis
+    """
+    if not filtered_data:
+        return None
+
+    trend_data = []
+    for player_name, stats in filtered_data.items():
+        value = stats.get(metric_key, 0)
+        if value is not None and value > 0:
+            trend_data.append({
+                "Player": player_name,
+                "Value": value,
+                "Team": stats.get("team", "Unknown")
+            })
+
+    if trend_data:
+        return pd.DataFrame(trend_data)
+
+    return None
+
+def create_trend_analysis_prompt(trend_data, metric_name, position_type):
+    """
+    Create AI prompt for trend analysis
+    """
+    if trend_data is None or trend_data.empty:
+        return f"Analyze the {metric_name} trends for {position_type.lower()}."
+
+    # Calculate basic statistics
+    mean_val = trend_data["Value"].mean()
+    median_val = trend_data["Value"].median()
+    std_val = trend_data["Value"].std()
+    min_val = trend_data["Value"].min()
+    max_val = trend_data["Value"].max()
+
+    prompt = f"""
+    Analyze the {metric_name} performance trends for {position_type.lower()} with the following statistics:
+
+    - Mean: {mean_val:.2f}
+    - Median: {median_val:.2f}
+    - Standard Deviation: {std_val:.2f}
+    - Range: {min_val:.2f} to {max_val:.2f}
+    - Number of players: {len(trend_data)}
+
+    Top 5 performers:
+    {trend_data.nlargest(5, 'Value')[['Player', 'Value', 'Team']].to_string(index=False)}
+
+    Please provide insights on:
+    1. What does this distribution tell us about {metric_name} performance?
+    2. Are there clear performance tiers or is it more evenly distributed?
+    3. What would be considered excellent, good, average, and poor performance levels?
+    4. Are there any outliers that deserve special attention?
+    5. What factors might explain the performance variations?
+
+    Provide actionable insights for player evaluation and development.
+    """
+
+    return prompt
+
+def create_player_comparison_data(filtered_data, selected_players, position_type):
+    """
+    Create comparison data for selected players
+    """
+    if not selected_players or not filtered_data:
+        return None
+
+    # Get key metrics for comparison
+    if position_type == "Goalkeepers":
+        metrics = ["save_percentage", "saves", "conceded_goals", "shots_against", "minutes"]
+        metric_names = ["Save %", "Saves", "Goals Conceded", "Shots Against", "Minutes"]
+    else:
+        metrics = ["goals", "assists", "shots", "passes_accurate", "duels_won", "minutes"]
+        metric_names = ["Goals", "Assists", "Shots", "Accurate Passes", "Duels Won", "Minutes"]
+
+    comparison_data = []
+    for player in selected_players:
+        if player in filtered_data:
+            stats = filtered_data[player]
+            row = {"Player": player, "Team": stats.get("team", "Unknown")}
+
+            for i, metric in enumerate(metrics):
+                value = stats.get(metric, 0)
+                row[metric_names[i]] = value if value is not None else 0
+
+            comparison_data.append(row)
+
+    if comparison_data:
+        return pd.DataFrame(comparison_data)
+
+    return None
+
+def create_player_comparison_prompt(comparison_data, selected_players, position_type):
+    """
+    Create AI prompt for player comparison
+    """
+    if comparison_data is None or comparison_data.empty:
+        return f"Compare the selected {position_type.lower()} players."
+
+    data_summary = comparison_data.to_string(index=False)
+
+    prompt = f"""
+    Compare the following {position_type.lower()} players based on their performance data:
+
+    {data_summary}
+
+    Please provide a detailed comparison including:
+    1. Who is the strongest performer overall and in which areas?
+    2. What are each player's key strengths and weaknesses?
+    3. How do they complement each other if used together?
+    4. Which player would you recommend for different tactical situations?
+    5. Are there areas where any player significantly outperforms the others?
+    6. What development areas would you suggest for each player?
+
+    Provide specific, actionable insights for team selection and player development.
+    """
+
+    return prompt
+
+def create_tactical_analysis_prompt(filtered_data, selected_tactical, position_type):
+    """
+    Create AI prompt for tactical analysis
+    """
+    # Get sample of player data for context
+    sample_players = list(filtered_data.keys())[:5]
+    context_data = []
+
+    for player in sample_players:
+        stats = filtered_data[player]
+        context_data.append(f"{player} ({stats.get('team', 'Unknown')})")
+
+    prompt = f"""
+    Perform a {selected_tactical} for {position_type.lower()} based on the available player data.
+
+    Available players include: {', '.join(context_data)}
+
+    For {selected_tactical}, please analyze:
+    1. What tactical patterns emerge from the player performance data?
+    2. How should these players be utilized tactically?
+    3. What formations or playing styles would best suit these players?
+    4. Are there tactical weaknesses that need to be addressed?
+    5. What recommendations would you make for tactical setup?
+
+    Focus on practical tactical insights that can be implemented by coaches.
+    """
+
+    return prompt
+
+def create_player_stats_summary(player_stats, position_type):
+    """
+    Create a summary of player statistics for display
+    """
+    if position_type == "Goalkeepers":
+        key_stats = {
+            "Matches": player_stats.get("matches", 0),
+            "Minutes": player_stats.get("minutes", 0),
+            "Save %": player_stats.get("save_percentage", 0),
+            "Saves": player_stats.get("saves", 0),
+            "Goals Conceded": player_stats.get("conceded_goals", 0),
+            "Shots Against": player_stats.get("shots_against", 0)
+        }
+    else:
+        key_stats = {
+            "Minutes": player_stats.get("minutes", 0),
+            "Goals": player_stats.get("goals", 0),
+            "Assists": player_stats.get("assists", 0),
+            "Shots": player_stats.get("shots", 0),
+            "Passes": player_stats.get("passes", 0),
+            "Duels Won": player_stats.get("duels_won", 0)
+        }
+
+    # Convert to DataFrame
+    stats_df = pd.DataFrame([
+        {"Statistic": stat, "Value": value}
+        for stat, value in key_stats.items()
+    ])
+
+    return stats_df
+
+def create_performance_prediction_prompt(player_stats, player_name, position_type):
+    """
+    Create AI prompt for performance prediction
+    """
+    # Get key stats for context
+    if position_type == "Goalkeepers":
+        key_metrics = {
+            "Save Percentage": player_stats.get("save_percentage", 0),
+            "Saves": player_stats.get("saves", 0),
+            "Goals Conceded": player_stats.get("conceded_goals", 0),
+            "Minutes": player_stats.get("minutes", 0)
+        }
+    else:
+        key_metrics = {
+            "Goals": player_stats.get("goals", 0),
+            "Assists": player_stats.get("assists", 0),
+            "Minutes": player_stats.get("minutes", 0),
+            "Duels Won": player_stats.get("duels_won", 0)
+        }
+
+    stats_summary = ", ".join([f"{k}: {v}" for k, v in key_metrics.items()])
+
+    prompt = f"""
+    Analyze and predict the future performance of {player_name} ({position_type.lower()}) based on current statistics:
+
+    Current Performance: {stats_summary}
+
+    Please provide predictions and analysis on:
+    1. How is this player likely to perform in the next 6 months?
+    2. What are the key performance indicators to watch?
+    3. Are there signs of improvement or decline in their current form?
+    4. What factors could positively or negatively impact their future performance?
+    5. What specific areas should the player focus on for development?
+    6. How does their current trajectory compare to typical player development patterns?
+
+    Provide specific, actionable insights for player development and performance optimization.
+    """
+
+    return prompt

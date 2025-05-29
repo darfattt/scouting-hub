@@ -2372,65 +2372,30 @@ def render_performance_analysis(data_provider, filtered_data=None):
     # Analysis options
     analysis_type = st.selectbox(
         "Select analysis type:",
-        ["Save Percentage Distribution", "Goals Conceded per 90 Distribution", "Saves vs. Goals Conceded", "Top Performers"]
+        ["Save Percentage Analysis", "Goals Conceded Analysis", "Saves vs. Goals Conceded", "Top Performers"]
     )
 
-    if analysis_type == "Save Percentage Distribution":
-        st.subheader("Save Percentage Distribution")
+    if analysis_type == "Save Percentage Analysis":
+        st.subheader("Save Percentage Analysis")
 
-        # Create a Plotly histogram
-        fig = px.histogram(
-            df,
+        # Create a clean bar chart for top performers
+        top_save_pct = df.sort_values("Save %", ascending=False).head(10)
+
+        fig = px.bar(
+            top_save_pct,
             x="Save %",
-            nbins=20,
-            marginal="rug",
-            opacity=0.7,
-            color_discrete_sequence=["#1f77b4"],
-            title="Distribution of Goalkeeper Save Percentages"
+            y="Player",
+            orientation="h",
+            title="Top 10 Goalkeepers by Save Percentage",
+            color="Save %",
+            color_continuous_scale="viridis",
+            hover_data=["Team", "Matches", "Saves", "Shots Against"]
         )
-
-        # Add a KDE curve
-        fig.update_traces(
-            histnorm="probability density",
-            selector=dict(type="histogram")
-        )
-
-        # Add a smooth KDE curve
-        # Ensure we're working with numeric values
-        save_pct_values = df["Save %"].astype(float).dropna()
-
-        # Initialize empty arrays as fallback
-        kde_x = []
-        kde_y = []
-
-        try:
-            # Check if we have enough data points with variation
-            if len(save_pct_values) > 3 and save_pct_values.std() > 0:
-                kde_x = np.linspace(save_pct_values.min(), save_pct_values.max(), 100)
-                # Use scipy.stats explicitly to avoid confusion with other 'stats' variables
-                from scipy import stats as scipy_stats
-                kde = scipy_stats.gaussian_kde(save_pct_values)
-                kde_y = kde(kde_x)
-        except Exception as e:
-            st.warning(f"Could not generate KDE curve: {str(e)}")
-            # Keep the empty arrays initialized above
-
-        # Only add KDE trace if we have data
-        if len(kde_x) > 0:
-            fig.add_trace(
-                go.Scatter(
-                    x=kde_x,
-                    y=kde_y,
-                    mode="lines",
-                    line=dict(color="#ff7f0e", width=2),
-                    name="Density"
-                )
-            )
 
         # Update layout
         fig.update_layout(
             xaxis_title="Save Percentage (%)",
-            yaxis_title="Density",
+            yaxis_title="Players",
             plot_bgcolor="#F9F7F2",
             paper_bgcolor="#F9F7F2",
             height=500,
@@ -2440,67 +2405,31 @@ def render_performance_analysis(data_provider, filtered_data=None):
         # Display the chart
         st.plotly_chart(fig, use_container_width=True)
 
-        # Show top performers
-        st.subheader("Top 5 Goalkeepers by Save Percentage")
-        top_save_pct = df.sort_values("Save %", ascending=False).head(5)
-        st.dataframe(top_save_pct[["Player", "Team", "Save %", "Matches", "Saves", "Shots Against"]])
+        # Show detailed table
+        st.subheader("Top 10 Goalkeepers by Save Percentage")
+        st.dataframe(top_save_pct[["Player", "Team", "Save %", "Matches", "Saves", "Shots Against"]], use_container_width=True)
 
-    elif analysis_type == "Goals Conceded per 90 Distribution":
-        st.subheader("Goals Conceded per 90 Minutes Distribution")
+    elif analysis_type == "Goals Conceded Analysis":
+        st.subheader("Goals Conceded Analysis")
 
-        # Create a Plotly histogram
-        fig = px.histogram(
-            df,
+        # Create a clean bar chart for best performers (lowest goals conceded)
+        top_gc90 = df.sort_values("Goals Conceded/90").head(10)
+
+        fig = px.bar(
+            top_gc90,
             x="Goals Conceded/90",
-            nbins=20,
-            marginal="rug",
-            opacity=0.7,
-            color_discrete_sequence=["#2ca02c"],
-            title="Distribution of Goals Conceded per 90 Minutes"
+            y="Player",
+            orientation="h",
+            title="Top 10 Goalkeepers by Lowest Goals Conceded per 90 Minutes",
+            color="Goals Conceded/90",
+            color_continuous_scale="RdYlGn_r",  # Reverse scale so lower values are green
+            hover_data=["Team", "Matches", "Goals Conceded", "Minutes"]
         )
-
-        # Add a KDE curve
-        fig.update_traces(
-            histnorm="probability density",
-            selector=dict(type="histogram")
-        )
-
-        # Add a smooth KDE curve
-        # Ensure we're working with numeric values
-        gc90_values = df["Goals Conceded/90"].astype(float).dropna()
-
-        # Initialize empty arrays as fallback
-        kde_x = []
-        kde_y = []
-
-        try:
-            # Check if we have enough data points with variation
-            if len(gc90_values) > 3 and gc90_values.std() > 0:
-                kde_x = np.linspace(gc90_values.min(), gc90_values.max(), 100)
-                # Use scipy.stats explicitly to avoid confusion with other 'stats' variables
-                from scipy import stats as scipy_stats
-                kde = scipy_stats.gaussian_kde(gc90_values)
-                kde_y = kde(kde_x)
-        except Exception as e:
-            st.warning(f"Could not generate KDE curve: {str(e)}")
-            # Keep the empty arrays initialized above
-
-        # Only add KDE trace if we have data
-        if len(kde_x) > 0:
-            fig.add_trace(
-                go.Scatter(
-                    x=kde_x,
-                    y=kde_y,
-                    mode="lines",
-                    line=dict(color="#d62728", width=2),
-                    name="Density"
-                )
-            )
 
         # Update layout
         fig.update_layout(
             xaxis_title="Goals Conceded per 90 Minutes",
-            yaxis_title="Density",
+            yaxis_title="Players",
             plot_bgcolor="#F9F7F2",
             paper_bgcolor="#F9F7F2",
             height=500,
@@ -2510,10 +2439,9 @@ def render_performance_analysis(data_provider, filtered_data=None):
         # Display the chart
         st.plotly_chart(fig, use_container_width=True)
 
-        # Show top performers (lowest goals conceded)
-        st.subheader("Top 5 Goalkeepers by Lowest Goals Conceded per 90")
-        top_gc90 = df.sort_values("Goals Conceded/90").head(5)
-        st.dataframe(top_gc90[["Player", "Team", "Goals Conceded/90", "Matches", "Goals Conceded", "Minutes"]])
+        # Show detailed table
+        st.subheader("Top 10 Goalkeepers by Lowest Goals Conceded per 90")
+        st.dataframe(top_gc90[["Player", "Team", "Goals Conceded/90", "Matches", "Goals Conceded", "Minutes"]], use_container_width=True)
 
     elif analysis_type == "Saves vs. Goals Conceded":
         st.subheader("Saves vs. Goals Conceded")
