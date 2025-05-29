@@ -84,7 +84,7 @@ if rag is None:
     st.stop()
 
 # Page selection
-page = st.sidebar.radio("Select a page", ["AI Assistant", "Player Search", "Player Comparison", "Performance Analysis"])
+page = st.sidebar.radio("Select a page", ["AI Assistant", "Player Search", "Player Comparison", "Performance Analysis", "Player Performance", "Player Search Profiler", "Attribute Analysis"])
 
 # Add global filters to the sidebar
 filters = add_global_filters()
@@ -174,6 +174,20 @@ elif page == "Performance Analysis":
         render_performance_analysis(rag, filtered_data)
     else:
         render_outfield_performance_analysis(rag, filtered_data, position_type)
+
+# Player Performance page
+elif page == "Player Performance":
+    from performance_components import render_player_performance
+    render_player_performance(rag, filtered_data, position_type)
+
+# Player Search Profiler page
+elif page == "Player Search Profiler":
+    from profiler_components import render_player_search_profiler
+    render_player_search_profiler(rag, filtered_data, position_type)
+
+elif page == "Attribute Analysis":
+    from player_screen_components import render_player_screen
+    render_player_screen(rag, filtered_data, position_type)
 
 # Footer
 st.markdown("---")

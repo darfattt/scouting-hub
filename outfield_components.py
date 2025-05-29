@@ -3114,8 +3114,12 @@ def render_outfield_player_search(rag, filtered_data, position_type):
         role_type = None
 
     if role_weights_dict:
-        # Role selection
-        selected_role = st.selectbox(f"Select {role_type.lower()} role:", ["None"] + list(role_weights_dict.keys()))
+        # Role selection and top 10 filter
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            selected_role = st.selectbox(f"Select {role_type.lower()} role:", ["None"] + list(role_weights_dict.keys()))
+        with col2:
+            show_top_10_only = st.checkbox("Show Top 10 Only", value=True)
 
         if selected_role != "None":
             # Calculate role scores for all players
@@ -3171,123 +3175,57 @@ def render_outfield_player_search(rag, filtered_data, position_type):
 
             # Display role ranking
             if role_data:
+                # Apply top 10 filter if enabled
+                display_data = role_data[:10] if show_top_10_only else role_data
+
                 # Create DataFrame for display
-                df_role = pd.DataFrame(role_data)
+                df_role = pd.DataFrame(display_data)
 
-                # Create HTML table with embedded bars
-                def create_bar_html(score, max_score):
-                    """Create HTML for embedded bar chart in table cell"""
-                    bar_width = (score / max_score) * 100 if max_score > 0 else 0
-                    return f"""
-                    <div style="display: flex; align-items: center; width: 100%;">
-                        <div style="background: linear-gradient(90deg, #4a90e2 0%, #4a90e2 {bar_width}%, #2a2a2a {bar_width}%, #2a2a2a 100%);
-                                    width: 200px; height: 25px; border-radius: 3px; margin-right: 10px; position: relative;">
-                            <span style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
-                                         color: white; font-weight: bold; font-size: 12px;">
-                                {score:.1f}
-                            </span>
-                        </div>
-                    </div>
-                    """
+                # Add header
+                st.markdown(f"### Role Ranking - {selected_role}")
 
+                # Configure columns for the dataframe
+                column_config = {}
+
+                # Configure the Score column as a progress bar
                 max_score = df_role["Score"].max()
+                column_config["Score"] = st.column_config.ProgressColumn(
+                    "Score",
+                    help="Role performance score",
+                    min_value=0,
+                    max_value=max_score,
+                    format="%.1f"
+                )
 
-                # Create HTML table
-                html_table = f"""
-                <style>
-                .role-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-family: 'Source Sans Pro', sans-serif;
-                    font-size: 14px;
-                    background-color: #1e1e1e;
-                    color: #ffffff;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }}
-                .role-table th {{
-                    background-color: #2d2d2d;
-                    padding: 12px 8px;
-                    text-align: left;
-                    border-bottom: 2px solid #404040;
-                    font-weight: 600;
-                    color: #ffffff;
-                }}
-                .role-table td {{
-                    padding: 10px 8px;
-                    border-bottom: 1px solid #404040;
-                    vertical-align: middle;
-                    background-color: #1e1e1e;
-                }}
-                .role-table tr:hover {{
-                    background-color: #2a2a2a;
-                }}
-                .role-table tr:hover td {{
-                    background-color: #2a2a2a;
-                }}
-                .rank-cell {{
-                    text-align: center;
-                    font-weight: bold;
-                    color: #4a90e2;
-                }}
-                .role-header {{
-                    background-color: #2d2d2d;
-                    color: #ffffff;
-                    padding: 15px;
-                    margin: 20px 0 10px 0;
-                    border-radius: 8px 8px 0 0;
-                    font-size: 18px;
-                    font-weight: 600;
-                }}
-                </style>
-                <div class="role-header">Role Ranking - {selected_role}</div>
-                <table class="role-table">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Team</th>
-                        <th>Player</th>
-                        <th>Age</th>
-                        <th>Position</th>
-                        <th>Minutes</th>
-                """
+                # Configure other columns for better display
+                column_config["Rank"] = st.column_config.NumberColumn(
+                    "Rank",
+                    help="Player ranking",
+                    format="%d"
+                )
 
-                # Add headers for calculated parameter stats
+                column_config["Minutes"] = st.column_config.NumberColumn(
+                    "Minutes",
+                    help="Minutes played",
+                    format="%d"
+                )
+
+                # Configure stat columns
                 for stat in role_weights.keys():
                     stat_display = stat.replace("_", " ").title()
-                    html_table += f"<th>{stat_display}</th>"
+                    column_config[stat_display] = st.column_config.NumberColumn(
+                        stat_display,
+                        help=f"{stat_display} statistic",
+                        format="%.1f"
+                    )
 
-                html_table += "<th>Score</th></tr></thead><tbody>"
-
-                # Add data rows
-                for _, row in df_role.iterrows():
-                    html_table += f"""
-                    <tr>
-                        <td class="rank-cell">{row['Rank']}</td>
-                        <td>{row['Team']}</td>
-                        <td><strong>{row['Player']}</strong></td>
-                        <td>{row['Age']}</td>
-                        <td>{row['Position']}</td>
-                        <td>{row['Minutes']}</td>
-                    """
-
-                    # Add calculated parameter stats
-                    for stat in role_weights.keys():
-                        stat_display = stat.replace("_", " ").title()
-                        value = row[stat_display]
-                        if isinstance(value, float):
-                            html_table += f"<td>{value:.1f}</td>"
-                        else:
-                            html_table += f"<td>{value}</td>"
-
-                    # Add score bar
-                    html_table += f"<td>{create_bar_html(row['Score'], max_score)}</td>"
-                    html_table += "</tr>"
-
-                html_table += "</tbody></table>"
-
-                # Display the HTML table
-                st.markdown(html_table, unsafe_allow_html=True)
+                # Display the dataframe with progress column
+                st.dataframe(
+                    df_role,
+                    column_config=column_config,
+                    use_container_width=True,
+                    hide_index=True
+                )
             else:
                 st.warning("No players found for role analysis.")
     else:
