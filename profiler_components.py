@@ -226,28 +226,117 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
         min_minutes = st.slider("Minimum Minutes Played", min_value=0, max_value=3000, value=90, step=90,
                                help="Filter players by minimum minutes played")
 
-    # Weight adjustment section
-    st.subheader("⚖️ Customize Metrics & Weights")
-    st.markdown("**Adjust the weights for each metric in the selected category:**")
+    # Custom metric selection section
+    st.subheader("📊 Select Metrics")
+    st.markdown("**Choose which metrics to include in your custom analysis:**")
 
     category_weights = performance_categories[selected_category].copy()
+
+    # Define additional metrics not in preset categories
+    additional_metrics = {}
+    if position_type == "Goalkeepers":
+        additional_metrics = {
+            "exits": {"name": "Exits", "weight": 0.1, "negative": False},
+            "goal_kicks": {"name": "Goal Kicks", "weight": 0.1, "negative": False},
+            "short_goal_kicks": {"name": "Short Goal Kicks", "weight": 0.1, "negative": False},
+            "long_goal_kicks": {"name": "Long Goal Kicks", "weight": 0.1, "negative": False},
+            "prevented_goals": {"name": "Prevented Goals", "weight": 0.15, "negative": False},
+            "clean_sheets": {"name": "Clean Sheets", "weight": 0.15, "negative": False},
+            "save_rate": {"name": "Save Rate %", "weight": 0.15, "negative": False},
+            "xg_against": {"name": "xG Against", "weight": 0.1, "negative": True},
+            "aerial_duels": {"name": "Aerial Duels", "weight": 0.1, "negative": False},
+            "aerial_duels_won": {"name": "Aerial Duels Won", "weight": 0.1, "negative": False}
+        }
+    else:  # Outfield players
+        additional_metrics = {
+            "total_actions": {"name": "Total Actions", "weight": 0.1, "negative": False},
+            "total_actions_successful": {"name": "Total Actions Successful", "weight": 0.1, "negative": False},
+            "long_passes": {"name": "Long Passes", "weight": 0.1, "negative": False},
+            "long_passes_accurate": {"name": "Long Passes Accurate", "weight": 0.1, "negative": False},
+            "crosses": {"name": "Crosses", "weight": 0.1, "negative": False},
+            "crosses_accurate": {"name": "Crosses Accurate", "weight": 0.1, "negative": False},
+            "dribbles": {"name": "Dribbles", "weight": 0.1, "negative": False},
+            "aerial_duels": {"name": "Aerial Duels", "weight": 0.1, "negative": False},
+            "aerial_duels_won": {"name": "Aerial Duels Won", "weight": 0.1, "negative": False},
+            "losses_own_half": {"name": "Losses Own Half", "weight": 0.1, "negative": True},
+            "recoveries_opp_half": {"name": "Recoveries Opp. Half", "weight": 0.1, "negative": False},
+            "yellow_cards": {"name": "Yellow Cards", "weight": 0.05, "negative": True},
+            "red_cards": {"name": "Red Cards", "weight": 0.05, "negative": True},
+            "shot_accuracy": {"name": "Shot Accuracy %", "weight": 0.1, "negative": False},
+            "long_pass_accuracy": {"name": "Long Pass Accuracy %", "weight": 0.1, "negative": False},
+            "cross_accuracy": {"name": "Cross Accuracy %", "weight": 0.1, "negative": False},
+            "aerial_duel_success_rate": {"name": "Aerial Duel Success Rate %", "weight": 0.1, "negative": False}
+        }
+
+    # Get all available metrics for the selected category
+    available_metrics = list(category_weights.keys())
+    available_metric_names = [category_weights[key]['name'] for key in available_metrics]
+
+    # Get additional metrics
+    additional_metric_keys = list(additional_metrics.keys())
+    additional_metric_names = [additional_metrics[key]['name'] for key in additional_metric_keys]
+
+    # Create a mapping from display names back to keys
+    display_name_to_key = {category_weights[key]['name']: key for key in available_metrics}
+    display_name_to_key.update({additional_metrics[key]['name']: key for key in additional_metric_keys})
+
+    # Create two columns for metric selection
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(f"**📋 {selected_category} Metrics:**")
+        selected_preset_metrics = st.multiselect(
+            "Preset Category Metrics:",
+            options=available_metric_names,
+            default=available_metric_names,  # Default to all preset metrics
+            help=f"Metrics from the {selected_category} category",
+            key="preset_metrics"
+        )
+
+    with col2:
+        st.markdown("**🔧 Additional Metrics:**")
+        selected_additional_metrics = st.multiselect(
+            "Other Available Metrics:",
+            options=additional_metric_names,
+            default=[],  # Default to none
+            help="Additional metrics not included in the preset category",
+            key="additional_metrics"
+        )
+
+    # Combine selected metrics
+    selected_metric_names = selected_preset_metrics + selected_additional_metrics
+
+    # Convert selected display names back to keys
+    selected_metric_keys = [display_name_to_key[name] for name in selected_metric_names]
+
+    if not selected_metric_keys:
+        st.warning("⚠️ Please select at least one metric to continue.")
+        return
+
+    # Create combined weights dictionary from both preset and additional metrics
+    all_available_weights = {**category_weights, **additional_metrics}
+    filtered_category_weights = {key: all_available_weights[key] for key in selected_metric_keys if key in all_available_weights}
+
+    # Weight adjustment section
+    st.subheader("⚖️ Customize Weights for Selected Metrics")
+    st.markdown("**Adjust the importance of each selected metric (0.0 = not important, 1.0 = very important):**")
 
     # Create weight adjustment interface
     weight_cols = st.columns(2)
     col_idx = 0
 
-    for stat_key, stat_info in category_weights.items():
+    for stat_key, stat_info in filtered_category_weights.items():
         with weight_cols[col_idx % 2]:
             new_weight = st.slider(
-                f"{stat_info['name']} Weight",
+                f"⚖️ {stat_info['name']}",
                 min_value=0.0,
                 max_value=1.0,
                 value=stat_info['weight'],
                 step=0.05,
-                key=f"weight_{stat_key}",
+                key=f"weight_{stat_key}_{selected_category}",
                 help=f"Weight for {stat_info['name']} ({'negative' if stat_info['negative'] else 'positive'} stat)"
             )
-            category_weights[stat_key]['weight'] = new_weight
+            filtered_category_weights[stat_key]['weight'] = new_weight
         col_idx += 1
 
     # Calculate and display results
@@ -256,7 +345,7 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
         calculate_and_display_scores(
             player_data,
             players,
-            category_weights,
+            filtered_category_weights,
             selected_category,
             per_90_mode,
             min_minutes,
@@ -289,9 +378,53 @@ def get_stat_value(stats, stat_key, per_90_mode=False):
             dribbles = stats.get("dribbles", 0)
             dribbles_successful = stats.get("dribbles_successful", 0)
             value = (dribbles_successful / dribbles * 100) if dribbles > 0 else 0
+        elif stat_key == "shot_accuracy":
+            shots = stats.get("shots", 0)
+            shots_on_target = stats.get("shots_on_target", 0)
+            value = (shots_on_target / shots * 100) if shots > 0 else 0
+        elif stat_key == "long_pass_accuracy":
+            long_passes = stats.get("long_passes", 0)
+            long_passes_accurate = stats.get("long_passes_accurate", 0)
+            value = (long_passes_accurate / long_passes * 100) if long_passes > 0 else 0
+        elif stat_key == "cross_accuracy":
+            crosses = stats.get("crosses", 0)
+            crosses_accurate = stats.get("crosses_accurate", 0)
+            value = (crosses_accurate / crosses * 100) if crosses > 0 else 0
+        elif stat_key == "aerial_duel_success_rate":
+            aerial_duels = stats.get("aerial_duels", 0)
+            aerial_duels_won = stats.get("aerial_duels_won", 0)
+            value = (aerial_duels_won / aerial_duels * 100) if aerial_duels > 0 else 0
+        elif stat_key == "save_rate":
+            shots_against = stats.get("shots_against", 0)
+            saves = stats.get("saves", 0)
+            value = (saves / shots_against * 100) if shots_against > 0 else 0
+        elif stat_key == "total_actions":
+            # Calculate total actions from available stats
+            passes = stats.get("passes", 0)
+            duels = stats.get("duels", 0)
+            shots = stats.get("shots", 0)
+            value = passes + duels + shots
+        elif stat_key == "total_actions_successful":
+            # Calculate successful actions
+            passes_accurate = stats.get("passes_accurate", 0)
+            duels_won = stats.get("duels_won", 0)
+            shots_on_target = stats.get("shots_on_target", 0)
+            value = passes_accurate + duels_won + shots_on_target
+        elif stat_key == "aerial_duels":
+            # Estimate aerial duels as 30% of total duels
+            value = stats.get("duels", 0) * 0.3
+        elif stat_key == "aerial_duels_won":
+            # Estimate aerial duels won as 60% of aerial duels
+            aerial_duels = stats.get("aerial_duels", stats.get("duels", 0) * 0.3)
+            value = aerial_duels * 0.6
+        elif stat_key == "recoveries_opp_half":
+            # Estimate as 30% of total recoveries
+            value = stats.get("recoveries", 0) * 0.3
 
-    # Apply per 90 calculation if enabled
-    if per_90_mode and stat_key != "minutes":
+    # Apply per 90 calculation if enabled (exclude certain stats)
+    if per_90_mode and stat_key not in ["minutes", "save_rate", "pass_accuracy", "shot_accuracy",
+                                       "long_pass_accuracy", "cross_accuracy", "duel_success_rate",
+                                       "dribble_success_rate", "aerial_duel_success_rate"]:
         minutes = stats.get("minutes", 1)
         if minutes > 0:
             value = (value / minutes) * 90

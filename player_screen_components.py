@@ -3,6 +3,22 @@ import pandas as pd
 from typing import Dict, Optional
 
 
+def get_percentile_color(percentile):
+    """
+    Get color based on percentile value.
+    """
+    if percentile >= 80:
+        return '#1a9641'  # Dark green
+    elif percentile >= 60:
+        return '#73c378'  # Light green
+    elif percentile >= 40:
+        return '#f9d057'  # Yellow
+    elif percentile >= 20:
+        return '#fc8d59'  # Orange
+    else:
+        return '#d73027'  # Red, Optional
+
+
 def render_player_screen(data_provider, filtered_data: Optional[pd.DataFrame] = None, position_type: str = "Goalkeepers"):
     """
     Render the Player Screen interface for filtering players by statistics with percentile ranking.
@@ -122,6 +138,20 @@ def render_player_screen(data_provider, filtered_data: Optional[pd.DataFrame] = 
             st.warning("No players found with the current filters.")
             return
 
+    # Configuration section (moved up before data processing)
+    st.subheader("⚙️ Configuration")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        per_90_mode = st.checkbox("Per 90 Minutes", value=False, help="Calculate statistics per 90 minutes of play")
+
+    with col2:
+        use_percentile_ranks = st.checkbox("Use Percentile Rank", value=True, help="Show percentile ranks with color coding")
+
+    # Minutes filter
+    min_minutes = st.slider("Minimum Minutes Played", min_value=0, max_value=3000, value=90, step=90,
+                           help="Filter players by minimum minutes played")
+
     # Convert dictionary to DataFrame
     all_data = pd.DataFrame.from_dict(player_data_dict, orient='index')
     # Add player name as a column
@@ -132,21 +162,27 @@ def render_player_screen(data_provider, filtered_data: Optional[pd.DataFrame] = 
         st.warning("No players found with the current filters.")
         return
 
-    # Define metrics based on position type
+    # Apply minutes filter early
+    if 'minutes' in all_data.columns:
+        all_data = all_data[all_data['minutes'] >= min_minutes]
+        if all_data.empty:
+            st.warning(f"No players found with at least {min_minutes} minutes played.")
+            return
+
+    # Define metrics based on position type (removed General category)
     if position_type == "Goalkeepers":
         all_metrics = {
-            "General": [
-                {"name": "Matches", "key": "matches", "format": "int"},
-                {"name": "Minutes played", "key": "minutes", "format": "int"},
-                {"name": "Team", "key": "team", "format": "str"}
-            ],
             "Goalkeeping": [
                 {"name": "Conceded goals", "key": "conceded_goals", "format": "int"},
                 {"name": "xCG", "key": "xcg", "format": "float2"},
                 {"name": "Shots against", "key": "shots_against", "format": "int"},
                 {"name": "Saves", "key": "saves", "format": "int"},
                 {"name": "Saves with reflexes", "key": "saves_with_reflexes", "format": "int"},
-                {"name": "Exits", "key": "exits", "format": "int"}
+                {"name": "Exits", "key": "exits", "format": "int"},
+                {"name": "xG Against", "key": "xg_against", "format": "float2"},
+                {"name": "Prevented Goals", "key": "prevented_goals", "format": "float2"},
+                {"name": "Clean Sheets", "key": "clean_sheets", "format": "int"},
+                {"name": "Save Rate %", "key": "save_rate", "format": "float1"}
             ],
             "Distribution": [
                 {"name": "Long passes", "key": "long_passes", "format": "int"},
@@ -160,11 +196,6 @@ def render_player_screen(data_provider, filtered_data: Optional[pd.DataFrame] = 
         }
     else:
         all_metrics = {
-            'General': [
-                {"name": "Minutes played", "key": "minutes", "format": "int"},
-                {"name": "Total actions", "key": "total_actions", "format": "int"},
-                {"name": "Total actions successful", "key": "total_actions_successful", "format": "int"}
-            ],
             'Defensive': [
                 {"name": "Duels", "key": "duels", "format": "int"},
                 {"name": "Duels won", "key": "duels_won", "format": "int"},
@@ -195,15 +226,7 @@ def render_player_screen(data_provider, filtered_data: Optional[pd.DataFrame] = 
             ]
         }
 
-    # Configuration section
-    st.subheader("⚙️ Configuration")
-    col1, col2 = st.columns(2)
 
-    with col1:
-        per_90_mode = st.checkbox("Per 90 Minutes", value=False, help="Calculate statistics per 90 minutes of play")
-
-    with col2:
-        use_percentile_ranks = st.checkbox("Use Percentile Ranks", value=True, help="Show percentile ranks with color coding")
 
     # Stat selection and filtering
     st.subheader("📈 Select Statistics to Filter")
@@ -394,7 +417,7 @@ def prepare_display_data(filtered_data: pd.DataFrame, filters: Dict, per_90_mode
 
 
 def display_results_table(data: pd.DataFrame, filters: Dict, use_percentile_ranks: bool):
-    """Display the results table with proper formatting and coloring."""
+    """Display the results table with proper formatting and percentile cell coloring."""
     # Prepare columns for display
     basic_columns = []
     column_config = {}
@@ -419,7 +442,7 @@ def display_results_table(data: pd.DataFrame, filters: Dict, use_percentile_rank
             col_name = metric_key
 
             if use_percentile_ranks and f"{metric_key}_percentile" in data.columns:
-                # Show both raw value and percentile
+                # Show both raw value and percentile with cell coloring
                 # First add raw value (only if not already in display_columns)
                 if col_name not in display_columns:
                     if filter_config["format"] == "int":
@@ -434,12 +457,10 @@ def display_results_table(data: pd.DataFrame, filters: Dict, use_percentile_rank
                         )
                     display_columns.append(col_name)
 
-                # Then add percentile with color coding
+                # Add percentile column (will be styled with colors)
                 percentile_col = f"{metric_key}_percentile"
-                column_config[percentile_col] = st.column_config.ProgressColumn(
+                column_config[percentile_col] = st.column_config.NumberColumn(
                     filter_config["name"] + " %",
-                    min_value=0,
-                    max_value=100,
                     format="%.1f%%"
                 )
                 display_columns.append(percentile_col)
@@ -462,11 +483,40 @@ def display_results_table(data: pd.DataFrame, filters: Dict, use_percentile_rank
     available_columns = [col for col in display_columns if col in data.columns]
     display_data = data[available_columns]
 
-    # Display the table with enhanced styling
-    st.dataframe(
-        display_data,
-        column_config=column_config,
-        use_container_width=True,
-        hide_index=True,
-        height=min(600, len(display_data) * 35 + 50)  # Dynamic height based on rows
-    )
+    if use_percentile_ranks:
+        # Apply cell coloring for percentile columns using pandas styler
+        def color_percentile_cells(val, col_name):
+            """Apply color styling to percentile cells"""
+            if pd.isna(val) or not col_name.endswith('_percentile'):
+                return ''
+            return f'background-color: {get_percentile_color(val)}; color: white'
+
+        # Create styler and apply coloring to percentile columns
+        styler = display_data.style
+
+        # Apply styling to each percentile column
+        for metric_key in filters.keys():
+            percentile_col = f"{metric_key}_percentile"
+            if percentile_col in display_data.columns:
+                styler = styler.applymap(
+                    lambda val: f'background-color: {get_percentile_color(val)}; color: white' if pd.notna(val) else '',
+                    subset=[percentile_col]
+                )
+
+        # Display the styled table
+        st.dataframe(
+            styler,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            height=min(600, len(display_data) * 35 + 50)
+        )
+    else:
+        # Display without styling
+        st.dataframe(
+            display_data,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            height=min(600, len(display_data) * 35 + 50)
+        )
