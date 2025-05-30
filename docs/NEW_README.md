@@ -5,7 +5,7 @@ A comprehensive football scouting application using RAG (Retrieval-Augmented Gen
 ## 🚀 Features
 
 - **Player Search**: Search and filter players by various criteria
-- **Player Comparison**: Compare up to 3 players with detailed statistics
+- **Player Comparison**: Compare up to 3 players with detailed statistics  
 - **Performance Analysis**: Analyze player performance with AI insights
 - **Attribute Analysis**: Filter players by statistical ranges with percentile ranking
 - **Player Search Profiler**: Advanced player profiling with custom metrics
@@ -17,8 +17,6 @@ A comprehensive football scouting application using RAG (Retrieval-Augmented Gen
 rag_gk/
 ├── app.py                          # Main Streamlit application
 ├── requirements.txt                # Python dependencies
-├── setup.py                       # Package setup configuration
-├── pytest.ini                     # Test configuration
 ├── README.md                      # Project documentation
 │
 ├── src/                           # Source code modules
@@ -65,10 +63,7 @@ rag_gk/
 │
 ├── docs/                          # Documentation
 │   ├── setup/
-│   │   ├── installation.md
-│   │   └── data-format.md
 │   ├── features/
-│   │   └── overview.md
 │   └── troubleshooting/
 │
 └── storage/                       # Generated files and models
@@ -80,10 +75,6 @@ rag_gk/
     ├── player_data.pkl
     └── tfidf_model.pkl
 ```
-
-## 📊 Data Structure
-
-Place your player statistics CSV files in the `data/stats/` directory. The system supports both goalkeeper and outfield player data with automatic position detection.
 
 ## 🛠️ Setup
 
@@ -108,6 +99,10 @@ python scripts/build_all_rag.py
 streamlit run app.py
 ```
 
+## 📊 Data Structure
+
+Place your player statistics CSV files in the `data/stats/` directory. The system supports both goalkeeper and outfield player data with automatic position detection.
+
 ## 🎯 Usage
 
 1. **Global Filters**: Set date range and competition filters in the sidebar
@@ -126,21 +121,4 @@ pytest tests/
 
 ## 📚 Documentation
 
-Detailed documentation is available in the `docs/` directory:
-- **Setup**: Installation and data format guides
-- **Features**: Comprehensive feature overview
-- **Troubleshooting**: Common issues and solutions
-
-## 🔧 Development
-
-### Project Structure Benefits
-- **Modular Design**: Separated concerns with clear module boundaries
-- **Easy Testing**: Comprehensive test suite with pytest
-- **Documentation**: Well-documented codebase and features
-- **Scalability**: Organized structure supports future enhancements
-
-### Contributing
-1. Follow the existing code structure
-2. Add tests for new features
-3. Update documentation as needed
-4. Use the established import patterns
+Detailed documentation is available in the `docs/` directory covering setup, features, and troubleshooting.

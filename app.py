@@ -1,12 +1,18 @@
 import streamlit as st
-from rag_system import GoalkeeperRAG, ForwardRAG, MidfielderRAG, DefenderRAG, OutfieldRAG
-from app_components import (
+import sys
+import os
+
+# Add src directory to Python path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+from core.rag_system import GoalkeeperRAG, ForwardRAG, MidfielderRAG, DefenderRAG, OutfieldRAG
+from components.app_components import (
     render_player_search,
     render_player_comparison,
     add_global_filters,
     filter_player_data
 )
-from outfield_components import render_outfield_player_comparison, render_outfield_player_search
+from components.outfield_components import render_outfield_player_comparison, render_outfield_player_search
 
 # Set page configuration
 st.set_page_config(
@@ -176,16 +182,16 @@ elif page == "⚖️ Player Comparison":
 
 # Player Performance page
 elif page == "📈 Player Performance":
-    from performance_components import render_player_performance
+    from components.performance_components import render_player_performance
     render_player_performance(rag, filtered_data, position_type)
 
 # Player Search Profiler page
 elif page == "🏆 Player Search Profiler":
-    from profiler_components import render_player_search_profiler
+    from components.profiler_components import render_player_search_profiler
     render_player_search_profiler(rag, filtered_data, position_type)
 
 elif page == "📊 Attribute Analysis":
-    from player_screen_components import render_player_screen
+    from components.player_screen_components import render_player_screen
     render_player_screen(rag, filtered_data, position_type)
 
 # Footer

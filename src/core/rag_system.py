@@ -8,7 +8,7 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
-from data_processor import GoalkeeperDataProcessor, OutfieldDataProcessor
+from .data_processor import GoalkeeperDataProcessor, OutfieldDataProcessor
 
 class GoalkeeperRAG:
     """
