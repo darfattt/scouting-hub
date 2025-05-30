@@ -560,6 +560,12 @@ def render_ai_performance_insights(rag, filtered_data, position_type):
         st.warning("No player data available for AI analysis.")
         return
 
+    # Initialize session state for AI insights
+    if 'ai_insights_results' not in st.session_state:
+        st.session_state.ai_insights_results = {}
+    if 'current_analysis_type' not in st.session_state:
+        st.session_state.current_analysis_type = None
+
     # Performance analysis options
     analysis_options = [
         "Top Performers Analysis",
@@ -575,21 +581,40 @@ def render_ai_performance_insights(rag, filtered_data, position_type):
         help="Select the type of AI analysis you want to perform"
     )
 
+    # Check if analysis type changed, clear previous results
+    if st.session_state.current_analysis_type != selected_analysis:
+        st.session_state.ai_insights_results = {}
+        st.session_state.current_analysis_type = selected_analysis
+
     # Player selection for focused analysis
     players = list(filtered_data.keys())
 
     # Add a button to start analysis
     if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
-        if selected_analysis == "Top Performers Analysis":
-            render_top_performers_ai_analysis(rag, filtered_data, position_type)
-        elif selected_analysis == "Performance Trends Analysis":
-            render_performance_trends_ai_analysis(rag, filtered_data, position_type)
-        elif selected_analysis == "Player Comparison Insights":
-            render_player_comparison_ai_insights(rag, filtered_data, position_type, players)
-        elif selected_analysis == "Tactical Analysis":
-            render_tactical_ai_analysis(rag, filtered_data, position_type)
-        elif selected_analysis == "Performance Prediction":
-            render_performance_prediction_ai_analysis(rag, filtered_data, position_type, players)
+        with st.spinner(f"Running {selected_analysis}..."):
+            if selected_analysis == "Top Performers Analysis":
+                result = render_top_performers_ai_analysis(rag, filtered_data, position_type)
+                st.session_state.ai_insights_results[selected_analysis] = result
+            elif selected_analysis == "Performance Trends Analysis":
+                result = render_performance_trends_ai_analysis(rag, filtered_data, position_type)
+                st.session_state.ai_insights_results[selected_analysis] = result
+            elif selected_analysis == "Player Comparison Insights":
+                result = render_player_comparison_ai_insights(rag, filtered_data, position_type, players)
+                st.session_state.ai_insights_results[selected_analysis] = result
+            elif selected_analysis == "Tactical Analysis":
+                result = render_tactical_ai_analysis(rag, filtered_data, position_type)
+                st.session_state.ai_insights_results[selected_analysis] = result
+            elif selected_analysis == "Performance Prediction":
+                result = render_performance_prediction_ai_analysis(rag, filtered_data, position_type, players)
+                st.session_state.ai_insights_results[selected_analysis] = result
+
+    # Display results if available
+    if selected_analysis in st.session_state.ai_insights_results:
+        result = st.session_state.ai_insights_results[selected_analysis]
+        if result:
+            st.markdown("---")
+            st.markdown("#### 📊 Analysis Results")
+            # The result is already displayed by the individual analysis functions
     else:
         st.info(f"Click 'Start Analysis' to begin {selected_analysis}.")
 
@@ -604,33 +629,30 @@ def render_top_performers_ai_analysis(rag, filtered_data, position_type):
 
     if top_performers_data is None or top_performers_data.empty:
         st.warning("Insufficient data for top performers analysis.")
-        return
+        return None
 
     # Display top performers table
     st.markdown("##### 📊 Top Performers Summary")
     st.dataframe(top_performers_data, use_container_width=True, hide_index=True)
 
-    # Generate AI insights
-    col1, col2 = st.columns([2, 1])
+    # Generate AI insights automatically
+    with st.spinner("Analyzing top performers..."):
+        # Create analysis prompt
+        analysis_prompt = create_top_performers_analysis_prompt(top_performers_data, position_type)
 
-    with col2:
-        if st.button("🤖 Generate AI Insights", type="primary", use_container_width=True):
-            with st.spinner("Analyzing top performers..."):
-                # Create analysis prompt
-                analysis_prompt = create_top_performers_analysis_prompt(top_performers_data, position_type)
+        # Get AI insights
+        ai_response = rag.query(analysis_prompt)
 
-                # Get AI insights
-                ai_response = rag.query(analysis_prompt)
+        st.markdown("##### 🧠 AI Performance Insights")
+        st.markdown(ai_response["answer"])
 
-                with col1:
-                    st.markdown("##### 🧠 AI Performance Insights")
-                    st.markdown(ai_response["answer"])
+        # Show data sources used
+        with st.expander("📚 Analysis Sources"):
+            for i, doc in enumerate(ai_response.get("source_documents", [])):
+                st.markdown(f"**Source {i+1}:** {doc.metadata.get('player', 'Unknown')}")
+                st.text(doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content)
 
-                    # Show data sources used
-                    with st.expander("📚 Analysis Sources"):
-                        for i, doc in enumerate(ai_response.get("source_documents", [])):
-                            st.markdown(f"**Source {i+1}:** {doc.metadata.get('player', 'Unknown')}")
-                            st.text(doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content)
+    return {"data": top_performers_data, "insights": ai_response["answer"]}
 
 def render_performance_trends_ai_analysis(rag, filtered_data, position_type):
     """
@@ -643,7 +665,7 @@ def render_performance_trends_ai_analysis(rag, filtered_data, position_type):
 
     if not available_stats:
         st.warning("No performance metrics available for analysis.")
-        return
+        return None
 
     selected_metric = st.selectbox(
         "Select metric for trend analysis:",
@@ -672,21 +694,20 @@ def render_performance_trends_ai_analysis(rag, filtered_data, position_type):
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # AI trend analysis
-        col1, col2 = st.columns([2, 1])
+        # AI trend analysis automatically
+        with st.spinner("Analyzing performance trends..."):
+            # Create trend analysis prompt
+            trend_prompt = create_trend_analysis_prompt(trend_data, selected_metric, position_type)
 
-        with col2:
-            if st.button("🤖 Analyze Trends", type="primary", use_container_width=True):
-                with st.spinner("Analyzing performance trends..."):
-                    # Create trend analysis prompt
-                    trend_prompt = create_trend_analysis_prompt(trend_data, selected_metric, position_type)
+            # Get AI insights
+            ai_response = rag.query(trend_prompt)
 
-                    # Get AI insights
-                    ai_response = rag.query(trend_prompt)
+            st.markdown("##### 🧠 AI Trend Analysis")
+            st.markdown(ai_response["answer"])
 
-                    with col1:
-                        st.markdown("##### 🧠 AI Trend Analysis")
-                        st.markdown(ai_response["answer"])
+        return {"metric": selected_metric, "data": trend_data, "insights": ai_response["answer"]}
+
+    return None
 
 def render_player_comparison_ai_insights(rag, filtered_data, position_type, players):
     """
@@ -705,7 +726,7 @@ def render_player_comparison_ai_insights(rag, filtered_data, position_type, play
 
     if len(selected_players) < 2:
         st.info("Please select at least 2 players for comparison.")
-        return
+        return None
 
     # Display comparison data
     comparison_data = create_player_comparison_data(filtered_data, selected_players, position_type)
@@ -714,21 +735,20 @@ def render_player_comparison_ai_insights(rag, filtered_data, position_type, play
         st.markdown("##### 📊 Player Comparison Data")
         st.dataframe(comparison_data, use_container_width=True, hide_index=True)
 
-        # AI comparison analysis
-        col1, col2 = st.columns([2, 1])
+        # AI comparison analysis automatically
+        with st.spinner("Analyzing player comparisons..."):
+            # Create comparison prompt
+            comparison_prompt = create_player_comparison_prompt(comparison_data, selected_players, position_type)
 
-        with col2:
-            if st.button("🤖 Compare Players", type="primary", use_container_width=True):
-                with st.spinner("Analyzing player comparisons..."):
-                    # Create comparison prompt
-                    comparison_prompt = create_player_comparison_prompt(comparison_data, selected_players, position_type)
+            # Get AI insights
+            ai_response = rag.query(comparison_prompt)
 
-                    # Get AI insights
-                    ai_response = rag.query(comparison_prompt)
+            st.markdown("##### 🧠 AI Comparison Analysis")
+            st.markdown(ai_response["answer"])
 
-                    with col1:
-                        st.markdown("##### 🧠 AI Comparison Analysis")
-                        st.markdown(ai_response["answer"])
+        return {"players": selected_players, "data": comparison_data, "insights": ai_response["answer"]}
+
+    return None
 
 def render_tactical_ai_analysis(rag, filtered_data, position_type):
     """
@@ -750,21 +770,18 @@ def render_tactical_ai_analysis(rag, filtered_data, position_type):
         help="Select the type of tactical analysis"
     )
 
-    # Generate tactical insights
-    col1, col2 = st.columns([2, 1])
+    # Generate tactical insights automatically
+    with st.spinner("Analyzing tactical aspects..."):
+        # Create tactical analysis prompt
+        tactical_prompt = create_tactical_analysis_prompt(filtered_data, selected_tactical, position_type)
 
-    with col2:
-        if st.button("🤖 Generate Tactical Insights", type="primary", use_container_width=True):
-            with st.spinner("Analyzing tactical aspects..."):
-                # Create tactical analysis prompt
-                tactical_prompt = create_tactical_analysis_prompt(filtered_data, selected_tactical, position_type)
+        # Get AI insights
+        ai_response = rag.query(tactical_prompt)
 
-                # Get AI insights
-                ai_response = rag.query(tactical_prompt)
+        st.markdown("##### 🧠 AI Tactical Analysis")
+        st.markdown(ai_response["answer"])
 
-                with col1:
-                    st.markdown("##### 🧠 AI Tactical Analysis")
-                    st.markdown(ai_response["answer"])
+    return {"analysis_type": selected_tactical, "insights": ai_response["answer"]}
 
 def render_performance_prediction_ai_analysis(rag, filtered_data, position_type, players):
     """
@@ -780,7 +797,7 @@ def render_performance_prediction_ai_analysis(rag, filtered_data, position_type,
     )
 
     if not selected_player:
-        return
+        return None
 
     # Display player current stats
     player_stats = filtered_data[selected_player]
@@ -790,21 +807,18 @@ def render_performance_prediction_ai_analysis(rag, filtered_data, position_type,
     current_stats_df = create_player_stats_summary(player_stats, position_type)
     st.dataframe(current_stats_df, use_container_width=True, hide_index=True)
 
-    # AI prediction analysis
-    col1, col2 = st.columns([2, 1])
+    # AI prediction analysis automatically
+    with st.spinner("Analyzing performance predictions..."):
+        # Create prediction prompt
+        prediction_prompt = create_performance_prediction_prompt(player_stats, selected_player, position_type)
 
-    with col2:
-        if st.button("🤖 Predict Performance", type="primary", use_container_width=True):
-            with st.spinner("Analyzing performance predictions..."):
-                # Create prediction prompt
-                prediction_prompt = create_performance_prediction_prompt(player_stats, selected_player, position_type)
+        # Get AI insights
+        ai_response = rag.query(prediction_prompt)
 
-                # Get AI insights
-                ai_response = rag.query(prediction_prompt)
+        st.markdown("##### 🧠 AI Performance Prediction")
+        st.markdown(ai_response["answer"])
 
-                with col1:
-                    st.markdown("##### 🧠 AI Performance Prediction")
-                    st.markdown(ai_response["answer"])
+    return {"player": selected_player, "stats": current_stats_df, "insights": ai_response["answer"]}
 
 # Helper functions for AI analysis
 

@@ -10,7 +10,7 @@ from outfield_components import render_outfield_player_comparison, render_outfie
 
 # Set page configuration
 st.set_page_config(
-    page_title="Football Scouting Hub - Multi Position",
+    page_title="Scouting Hub",
     page_icon="⚽",
     layout="wide"
 )
@@ -52,7 +52,7 @@ def get_rag_systems():
 rag_systems = get_rag_systems()
 
 # Title and description
-st.title("⚽ Football Scouting Hub - Multi Position")
+st.title("⚽ Scouting Hub")
 st.markdown("""
 This application helps you analyze and compare players across all positions based on their performance statistics.
 Use the AI assistant to ask questions about players or explore the data directly.
@@ -83,7 +83,14 @@ if rag is None:
     st.stop()
 
 # Page selection
-page = st.sidebar.radio("Select a page", ["AI Assistant", "Player Search", "Player Comparison", "Player Performance", "Player Search Profiler", "Attribute Analysis"])
+page = st.sidebar.radio("Select a page", [
+    "🤖 AI Assistant",
+    "🔍 Player Search",
+    "⚖️ Player Comparison",
+    "📈 Player Performance",
+    "🏆 Player Search Profiler",
+    "📊 Attribute Analysis"
+])
 
 # Add global filters to the sidebar
 filters = add_global_filters()
@@ -92,7 +99,7 @@ filters = add_global_filters()
 filtered_data = filter_player_data(rag, filters)
 
 # AI Assistant page
-if page == "AI Assistant":
+if page == "🤖 AI Assistant":
     st.header(f"AI Scout Assistant - {position_type}")
 
     # Position-specific example questions
@@ -154,30 +161,30 @@ if page == "AI Assistant":
                 st.text(doc.page_content[:500] + "..." if len(doc.page_content) > 500 else doc.page_content)
 
 # Player Search page
-elif page == "Player Search":
+elif page == "🔍 Player Search":
     if position_type == "Goalkeepers":
         render_player_search(rag, filtered_data)
     else:
         render_outfield_player_search(rag, filtered_data, position_type)
 
 # Player Comparison page
-elif page == "Player Comparison":
+elif page == "⚖️ Player Comparison":
     if position_type == "Goalkeepers":
         render_player_comparison(rag, filtered_data)
     else:
         render_outfield_player_comparison(rag, filtered_data, position_type)
 
 # Player Performance page
-elif page == "Player Performance":
+elif page == "📈 Player Performance":
     from performance_components import render_player_performance
     render_player_performance(rag, filtered_data, position_type)
 
 # Player Search Profiler page
-elif page == "Player Search Profiler":
+elif page == "🏆 Player Search Profiler":
     from profiler_components import render_player_search_profiler
     render_player_search_profiler(rag, filtered_data, position_type)
 
-elif page == "Attribute Analysis":
+elif page == "📊 Attribute Analysis":
     from player_screen_components import render_player_screen
     render_player_screen(rag, filtered_data, position_type)
 

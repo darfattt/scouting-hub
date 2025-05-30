@@ -2664,6 +2664,103 @@ def render_outfield_player_search(rag, filtered_data, position_type):
         filtered_data: Dictionary of filtered player data
         position_type: Type of position being analyzed ("All Outfield", "Forward", "Midfielder", "Defender")
     """
+    # Add CSS for better table styling - Force full width
+    st.markdown("""
+    <style>
+    /* Force full width layout */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Make tables full width and remove centering */
+    .stDataFrame {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .stDataFrame > div {
+        width: 100% !important;
+        overflow-x: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .stDataFrame table {
+        width: 100% !important;
+        margin: 0 !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        table-layout: auto !important;
+    }
+
+    /* Remove any container centering and force full width */
+    .stDataFrame .dataframe {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /* Force container to use full width */
+    .element-container {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Ensure table headers are readable and full width */
+    .stDataFrame th {
+        background-color: #2c3e50 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+        padding: 8px 6px !important;
+        text-align: center !important;
+        border: none !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+    }
+
+    /* Style table cells */
+    .stDataFrame td {
+        padding: 6px 4px !important;
+        text-align: center !important;
+        border: none !important;
+        background-color: #ffffff !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+    }
+
+    /* Ensure progress columns are properly styled */
+    .stDataFrame .stProgress {
+        width: 100% !important;
+        margin: 0 !important;
+        min-width: 80px !important;
+    }
+
+    /* Force the entire app to use full width */
+    .css-1d391kg, .css-1y4p8pa {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Remove sidebar constraints on main content */
+    .css-1lcbmhc, .css-1outpf7 {
+        max-width: 100% !important;
+    }
+
+    /* Ensure dataframe container uses full width */
+    div[data-testid="stDataFrame"] {
+        width: 100% !important;
+    }
+
+    div[data-testid="stDataFrame"] > div {
+        width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.header(f"{position_type} Player Search")
 
     if not filtered_data:

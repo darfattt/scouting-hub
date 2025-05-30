@@ -181,6 +181,103 @@ def render_player_search(data_provider, filtered_data=None):
                       (either GoalkeeperRAG or SimpleGoalkeeperSearch)
         filtered_data: Optional pre-filtered player data
     """
+    # Add CSS for better table styling - Force full width
+    st.markdown("""
+    <style>
+    /* Force full width layout */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Make tables full width and remove centering */
+    .stDataFrame {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .stDataFrame > div {
+        width: 100% !important;
+        overflow-x: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .stDataFrame table {
+        width: 100% !important;
+        margin: 0 !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        table-layout: auto !important;
+    }
+
+    /* Remove any container centering and force full width */
+    .stDataFrame .dataframe {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /* Force container to use full width */
+    .element-container {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Ensure table headers are readable and full width */
+    .stDataFrame th {
+        background-color: #2c3e50 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+        padding: 8px 6px !important;
+        text-align: center !important;
+        border: none !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+    }
+
+    /* Style table cells */
+    .stDataFrame td {
+        padding: 6px 4px !important;
+        text-align: center !important;
+        border: none !important;
+        background-color: #ffffff !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+    }
+
+    /* Ensure progress columns are properly styled */
+    .stDataFrame .stProgress {
+        width: 100% !important;
+        margin: 0 !important;
+        min-width: 80px !important;
+    }
+
+    /* Force the entire app to use full width */
+    .css-1d391kg, .css-1y4p8pa {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Remove sidebar constraints on main content */
+    .css-1lcbmhc, .css-1outpf7 {
+        max-width: 100% !important;
+    }
+
+    /* Ensure dataframe container uses full width */
+    div[data-testid="stDataFrame"] {
+        width: 100% !important;
+    }
+
+    div[data-testid="stDataFrame"] > div {
+        width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.header("Player Search")
 
     # Get all player data
@@ -347,12 +444,13 @@ def render_player_search(data_provider, filtered_data=None):
                     format="%.1f"
                 )
 
-            # Display the dataframe with progress column
+            # Display the dataframe with progress column and enhanced styling
             st.dataframe(
                 df_role,
                 column_config=column_config,
                 use_container_width=True,
-                hide_index=True
+                hide_index=True,
+                height=min(600, len(df_role) * 35 + 50)  # Dynamic height based on rows
             )
         else:
             st.warning("No players found for role analysis.")
@@ -402,7 +500,7 @@ def render_player_search(data_provider, filtered_data=None):
             data.append(row)
 
         df = pd.DataFrame(data)
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True, height=min(600, len(df) * 35 + 50))
 
         # Player details
         selected_player = st.selectbox("Select a player for detailed stats:", filtered_players)

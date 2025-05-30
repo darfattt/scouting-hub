@@ -10,21 +10,99 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
         filtered_data: Optional pre-filtered player data
         position_type: Type of position (Goalkeepers, Forwards, Defenders, etc.)
     """
-    # Add CSS for better table styling
+    # Add CSS for better table styling - Force full width
     st.markdown("""
     <style>
+    /* Force full width layout */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Make tables full width and remove centering */
     .stDataFrame {
         width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
+
     .stDataFrame > div {
         width: 100% !important;
-        overflow-x: auto;
+        overflow-x: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    /* Ensure table headers are readable */
+
+    .stDataFrame table {
+        width: 100% !important;
+        margin: 0 !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        table-layout: auto !important;
+    }
+
+    /* Remove any container centering and force full width */
+    .stDataFrame .dataframe {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /* Force container to use full width */
+    .element-container {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Ensure table headers are readable and full width */
     .stDataFrame th {
-        background-color: #f0f2f6 !important;
-        color: #262730 !important;
+        background-color: #2c3e50 !important;
+        color: #ffffff !important;
         font-weight: bold !important;
+        padding: 8px 6px !important;
+        text-align: center !important;
+        border: none !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+    }
+
+    /* Style table cells */
+    .stDataFrame td {
+        padding: 6px 4px !important;
+        text-align: center !important;
+        border: none !important;
+        background-color: #ffffff !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+    }
+
+    /* Ensure progress columns are properly styled */
+    .stDataFrame .stProgress {
+        width: 100% !important;
+        margin: 0 !important;
+        min-width: 80px !important;
+    }
+
+    /* Force the entire app to use full width */
+    .css-1d391kg, .css-1y4p8pa {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Remove sidebar constraints on main content */
+    .css-1lcbmhc, .css-1outpf7 {
+        max-width: 100% !important;
+    }
+
+    /* Ensure dataframe container uses full width */
+    div[data-testid="stDataFrame"] {
+        width: 100% !important;
+    }
+
+    div[data-testid="stDataFrame"] > div {
+        width: 100% !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -174,18 +252,16 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
 
     # Calculate and display results
     st.markdown("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🚀 Calculate Performance Scores", type="primary", use_container_width=True):
-            calculate_and_display_scores(
-                player_data,
-                players,
-                category_weights,
-                selected_category,
-                per_90_mode,
-                min_minutes,
-                show_top_10_only
-            )
+    if st.button("🚀 Calculate Performance Scores", type="primary", use_container_width=True):
+        calculate_and_display_scores(
+            player_data,
+            players,
+            category_weights,
+            selected_category,
+            per_90_mode,
+            min_minutes,
+            show_top_10_only
+        )
 
 def get_stat_value(stats, stat_key, per_90_mode=False):
     """Safely get stat value with fallback handling"""
@@ -366,14 +442,14 @@ def calculate_and_display_scores(player_data, players, category_weights, categor
                 else:
                     column_config[col] = st.column_config.NumberColumn(col, format="%.1f")
 
-        # Display the dataframe with full width in a container
-        with st.container():
-            st.dataframe(
-                df,
-                column_config=column_config,
-                use_container_width=True,
-                hide_index=True
-            )
+        # Display the dataframe with full width and no spacing
+        st.dataframe(
+            df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            #height=min(600, len(df) * 35 + 50)  # Dynamic height based on rows
+        )
 
         # Add performance index metrics explanation
         st.info(f"""

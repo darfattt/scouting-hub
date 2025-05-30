@@ -8,12 +8,12 @@ def main():
     Main application for multi-position football scouting hub.
     """
     st.set_page_config(
-        page_title="Football Scouting Hub - Multi Position",
+        page_title="Scouting Hub",
         page_icon="⚽",
         layout="wide"
     )
     
-    st.title("⚽ Football Scouting Hub - Multi Position Analysis")
+    st.title("⚽ Scouting Hub Analysis")
     st.markdown("Advanced player analysis and comparison across all positions")
     
     # Sidebar for position selection and global filters
