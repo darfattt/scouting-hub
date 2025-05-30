@@ -37,7 +37,51 @@ def render_overall_performance(rag, filtered_data, position_type):
     """
     st.markdown("### Analyze player performances based on key performance metrics")
 
-    # Get available stats based on position type
+    # Configuration section
+    st.markdown("#### ⚙️ Configuration")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        show_per_90 = st.checkbox(
+            "Show Per 90 Minutes",
+            value=False,
+            help="Display statistics per 90 minutes played",
+            key="overall_show_per_90"
+        )
+
+    with col2:
+        num_players = st.slider(
+            "Number of players:",
+            min_value=3,
+            max_value=min(50, len(filtered_data)),
+            value=10,
+            help="Select how many top players to display",
+            key="overall_num_players"
+        )
+
+    # Minutes filter
+    min_minutes = st.slider(
+        "Minimum Minutes Played",
+        min_value=0,
+        max_value=3000,
+        value=90,
+        step=90,
+        help="Filter players by minimum minutes played",
+        key="overall_min_minutes"
+    )
+
+    # Apply minutes filter
+    if 'minutes' in next(iter(filtered_data.values()), {}):
+        filtered_data = {
+            player: stats for player, stats in filtered_data.items()
+            if stats.get('minutes', 0) >= min_minutes
+        }
+
+    if not filtered_data:
+        st.warning(f"No players found with at least {min_minutes} minutes played.")
+        return
+
+    # Get available stats based on position type (excluding minutes)
     available_stats, stats_by_category = get_available_stats_with_categories(filtered_data, position_type)
 
     if not available_stats:
@@ -47,11 +91,13 @@ def render_overall_performance(rag, filtered_data, position_type):
     # Metric selection with categories
     st.markdown("#### 📊 Select a Key Performance Metric")
 
-    # Create flat list of all available metrics (no category headers)
+    # Create flat list of all available metrics (no category headers, excluding minutes)
     all_metrics = []
     for category, metrics in stats_by_category.items():
         if metrics:  # Only add metrics that are available
-            all_metrics.extend(metrics)
+            # Filter out minutes-related metrics
+            filtered_metrics = [m for m in metrics if 'minutes' not in m.lower()]
+            all_metrics.extend(filtered_metrics)
 
     if not all_metrics:
         st.warning("No performance metrics available for analysis.")
@@ -62,27 +108,6 @@ def render_overall_performance(rag, filtered_data, position_type):
         options=all_metrics,
         help="Select the performance metric to analyze"
     )
-
-    # Display options
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("#### 🎯 How Many Players to Display?")
-        num_players = st.slider(
-            "Number of players:",
-            min_value=3,
-            max_value=min(50, len(filtered_data)),
-            value=10,
-            help="Select how many top players to display"
-        )
-
-    with col2:
-        st.markdown("#### ⚽ Display Options")
-        show_per_90 = st.checkbox(
-            "Show Per 90 Minutes",
-            value=False,
-            help="Display statistics per 90 minutes played"
-        )
 
     # Generate the chart
     generate_overall_performance_chart(
@@ -100,7 +125,49 @@ def render_multi_stat_comparison(rag, filtered_data, position_type):
     """
     st.markdown("### Compare player performances across multiple statistics")
 
-    # Get available stats with categories
+    # Configuration section
+    st.markdown("#### ⚙️ Configuration")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        show_trendline = st.checkbox("Show Trendline", value=False, key="multi_show_trendline")
+        show_median = st.checkbox("Show Median Lines", value=False, key="multi_show_median")
+
+    with col2:
+        show_player_names = st.checkbox("Show Player Names", value=True, key="multi_show_player_names")
+
+    # Player count and minutes filter
+    num_players_multi = st.slider(
+        "Number of players for analysis:",
+        min_value=3,
+        max_value=min(100, len(filtered_data)),
+        value=20,
+        help="Select how many players to include in the analysis",
+        key="multi_num_players"
+    )
+
+    min_minutes = st.slider(
+        "Minimum Minutes Played",
+        min_value=0,
+        max_value=3000,
+        value=90,
+        step=90,
+        help="Filter players by minimum minutes played",
+        key="multi_min_minutes"
+    )
+
+    # Apply minutes filter
+    if 'minutes' in next(iter(filtered_data.values()), {}):
+        filtered_data = {
+            player: stats for player, stats in filtered_data.items()
+            if stats.get('minutes', 0) >= min_minutes
+        }
+
+    if not filtered_data:
+        st.warning(f"No players found with at least {min_minutes} minutes played.")
+        return
+
+    # Get available stats with categories (excluding minutes)
     available_stats, stats_by_category = get_available_stats_with_categories(filtered_data, position_type)
 
     if not available_stats:
@@ -110,11 +177,13 @@ def render_multi_stat_comparison(rag, filtered_data, position_type):
     # Stats selection with categories
     st.markdown("#### 📊 Choose 2 or 3 Stats for Comparison")
 
-    # Create organized options for multiselect
+    # Create organized options for multiselect (excluding minutes)
     all_stat_names = []
     for category, metrics in stats_by_category.items():
         if metrics:  # Only add categories that have available metrics
-            all_stat_names.extend(metrics)
+            # Filter out minutes-related metrics
+            filtered_metrics = [m for m in metrics if 'minutes' not in m.lower()]
+            all_stat_names.extend(filtered_metrics)
 
     selected_stats = st.multiselect(
         "Select statistics:",
@@ -135,26 +204,6 @@ def render_multi_stat_comparison(rag, filtered_data, position_type):
     if len(selected_stats) < 2:
         st.warning("Please select at least 2 statistics for comparison.")
         return
-
-    # Display options
-    col1, col2 = st.columns(2)
-
-    with col1:
-        show_trendline = st.checkbox("Show Trendline", value=False)
-        show_median = st.checkbox("Show Median Lines", value=False)
-
-    with col2:
-        show_player_names = st.checkbox("Show Player Names", value=True)
-
-    # Player count slider
-    st.markdown("#### 🎯 How Many Players to Display for Multi-Stat Analysis?")
-    num_players_multi = st.slider(
-        "Number of players for analysis:",
-        min_value=3,
-        max_value=min(100, len(filtered_data)),
-        value=20,
-        help="Select how many players to include in the analysis"
-    )
 
     # Generate the scatter plot
     generate_multi_stat_comparison(
@@ -266,12 +315,11 @@ def get_available_stats_with_categories(filtered_data, position_type):
     # Get a sample player to check available stats
     sample_player = next(iter(filtered_data.values()))
 
-    # Define comprehensive stats based on position
+    # Define comprehensive stats based on position (excluding minutes from selection)
     if position_type == "Goalkeepers":
         all_metrics = {
             "General": [
                 {"name": "Matches", "key": "matches"},
-                {"name": "Minutes played", "key": "minutes"},
                 {"name": "Total actions", "key": "total_actions"},
                 {"name": "Total actions successful", "key": "total_actions_successful"}
             ],
@@ -299,7 +347,6 @@ def get_available_stats_with_categories(filtered_data, position_type):
     else:
         all_metrics = {
             "General": [
-                {"name": "Minutes", "key": "minutes"},
                 {"name": "Total actions", "key": "total_actions"},
                 {"name": "Total actions successful", "key": "total_actions_successful"}
             ],
