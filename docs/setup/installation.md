@@ -44,7 +44,7 @@ pip install -r requirements.txt
 4. Pull the required model:
 
 ```bash
-ollama pull deepseek-r1:8b
+ollama pull phi3:mini
 ```
 
 ## Step 5: Prepare Data

@@ -154,7 +154,7 @@ def main():
         print("\n❌ FAILED! No RAG systems were built successfully.")
         print("\nTroubleshooting:")
         print("1. Check Ollama is running: ollama list")
-        print("2. Verify deepseek-r1:8b model: ollama pull deepseek-r1:8b")
+        print("2. Verify phi3:mini model: ollama pull phi3:mini")
         print("3. Check data files in data/stats/ directory")
         print("4. Verify Python dependencies are installed")
 

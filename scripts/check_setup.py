@@ -61,14 +61,14 @@ def check_ollama():
             print("  ✓ Ollama is running")
 
             # Check for required models
-            has_deepseek = 'deepseek-r1:8b' in result.stdout
+            has_phi3 = 'phi3:mini' in result.stdout
             has_nomic = 'nomic-embed-text' in result.stdout
 
-            if has_deepseek:
-                print("  ✓ deepseek-r1:8b model available")
+            if has_phi3:
+                print("  ✓ phi3:mini model available")
             else:
-                print("  ✗ deepseek-r1:8b model not found")
-                print("    Run: ollama pull deepseek-r1:8b")
+                print("  ✗ phi3:mini model not found")
+                print("    Run: ollama pull phi3:mini")
 
             if has_nomic:
                 print("  ✓ nomic-embed-text model available")
@@ -76,7 +76,7 @@ def check_ollama():
                 print("  ✗ nomic-embed-text model not found")
                 print("    Run: ollama pull nomic-embed-text")
 
-            return has_deepseek and has_nomic
+            return has_phi3 and has_nomic
         else:
             print("  ✗ Ollama not responding")
             return False
@@ -226,7 +226,7 @@ def main():
         print("\nCommon solutions:")
         print("- Install missing packages: pip install <package_name>")
         print("- Start Ollama: ollama serve")
-        print("- Pull model: ollama pull deepseek-r1:8b")
+        print("- Pull model: ollama pull phi3:mini")
         print("- Add CSV files to data/stats/ directory")
 
 if __name__ == "__main__":

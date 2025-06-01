@@ -17,7 +17,7 @@ class GoalkeeperRAG:
 
     def __init__(
         self,
-        model_name: str = "deepseek-r1:8b",
+        model_name: str = "phi3:mini",
         embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store"
@@ -227,7 +227,7 @@ class OutfieldRAG:
 
     def __init__(
         self,
-        model_name: str = "deepseek-r1:8b",
+        model_name: str = "phi3:mini",
         embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_outfield",
@@ -470,7 +470,7 @@ class ForwardRAG(OutfieldRAG):
 
     def __init__(
         self,
-        model_name: str = "deepseek-r1:8b",
+        model_name: str = "phi3:mini",
         embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_forwards"
@@ -494,7 +494,7 @@ class MidfielderRAG(OutfieldRAG):
 
     def __init__(
         self,
-        model_name: str = "deepseek-r1:8b",
+        model_name: str = "phi3:mini",
         embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_midfielders"
@@ -518,7 +518,7 @@ class DefenderRAG(OutfieldRAG):
 
     def __init__(
         self,
-        model_name: str = "deepseek-r1:8b",
+        model_name: str = "phi3:mini",
         embeddings_model_name: str = "nomic-embed-text",
         data_dir: str = "data/stats",
         vector_store_path: str = "vector_store_defenders"

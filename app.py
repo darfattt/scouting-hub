@@ -95,7 +95,8 @@ page = st.sidebar.radio("Select a page", [
     "⚖️ Player Comparison",
     "📈 Player Performance",
     "🏆 Player Search Profiler",
-    "📊 Attribute Analysis"
+    "📊 Attribute Analysis",
+    "🔍 Find Similar Player"
 ])
 
 # Add global filters to the sidebar
@@ -193,6 +194,10 @@ elif page == "🏆 Player Search Profiler":
 elif page == "📊 Attribute Analysis":
     from components.player_screen_components import render_player_screen
     render_player_screen(rag, filtered_data, position_type)
+
+elif page == "🔍 Find Similar Player":
+    from components.player_clone_components import render_player_clone
+    render_player_clone(rag, filtered_data, position_type)
 
 # Footer
 st.markdown("---")

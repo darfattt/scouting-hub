@@ -546,13 +546,41 @@ def calculate_and_display_scores(player_data, players, category_weights, categor
         # Configure columns
         column_config = {}
 
-        # Configure Weighted Score as progress column
-        max_score = df["Weighted Score"].max()
-        column_config["Weighted Score"] = st.column_config.ProgressColumn(
+        # Function to get percentile color
+        def get_percentile_color(percentile_rank):
+            """Get color based on percentile rank"""
+            # Color ranges - use exact boundaries to match the legend
+            if percentile_rank >= 81:  # 81-100% range
+                return '#1a9641'  # Dark green (81-100%)
+            elif percentile_rank >= 61:  # 61-80% range
+                return '#73c378'  # Medium green (61-80%)
+            elif percentile_rank >= 41:  # 41-60% range
+                return '#f9d057'  # Yellow (41-60%)
+            elif percentile_rank >= 21:  # 21-40% range
+                return '#fc8d59'  # Light orange (21-40%)
+            else:  # 0-20% range
+                return '#d73027'  # Red (0-20%)
+
+        # Apply styling to the dataframe
+        def style_weighted_score(val, percentile_rank):
+            """Style function for weighted score column"""
+            color = get_percentile_color(percentile_rank)
+            return f'background-color: {color}; color: white; font-weight: bold'
+
+        # Create styled dataframe
+        styled_df = df.style.apply(
+            lambda row: [
+                style_weighted_score(row['Weighted Score'], row['Percentile Rank'])
+                if col == 'Weighted Score' else ''
+                for col in df.columns
+            ],
+            axis=1
+        )
+
+        # Configure Weighted Score as number column
+        column_config["Weighted Score"] = st.column_config.NumberColumn(
             "Weighted Score",
-            help="Performance score based on weighted metrics",
-            min_value=0,
-            max_value=max_score,
+            help="Performance score based on weighted metrics (colored by percentile rank)",
             format="%.1f"
         )
 
@@ -575,9 +603,9 @@ def calculate_and_display_scores(player_data, players, category_weights, categor
                 else:
                     column_config[col] = st.column_config.NumberColumn(col, format="%.1f")
 
-        # Display the dataframe with full width and no spacing
+        # Display the styled dataframe with full width and no spacing
         st.dataframe(
-            df,
+            styled_df,
             column_config=column_config,
             use_container_width=True,
             hide_index=True,

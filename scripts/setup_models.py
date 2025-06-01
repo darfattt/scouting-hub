@@ -4,6 +4,7 @@ Setup Ollama Models
 Script to download required models for the RAG system.
 """
 
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -21,10 +22,10 @@ def run_command(command, description):
     """Run a command and return success status."""
     print(f"Running: {description}")
     print(f"Command: {' '.join(command)}")
-    
+
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=300)
-        
+
         if result.returncode == 0:
             print("✓ Success")
             if result.stdout.strip():
@@ -35,7 +36,7 @@ def run_command(command, description):
             if result.stderr.strip():
                 print(f"Error: {result.stderr.strip()}")
             return False
-            
+
     except subprocess.TimeoutExpired:
         print("✗ Command timed out (5 minutes)")
         return False
@@ -46,7 +47,7 @@ def run_command(command, description):
 def check_ollama():
     """Check if Ollama is available."""
     print("Checking Ollama availability...")
-    
+
     try:
         result = subprocess.run(['ollama', '--version'], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
@@ -66,26 +67,26 @@ def check_ollama():
 def pull_models():
     """Pull required models."""
     models = [
-        ("deepseek-r1:8b", "DeepSeek R1 8B - Main reasoning model"),
+        ("phi3:mini", "Phi-3 Mini - Main reasoning model"),
         ("nomic-embed-text", "Nomic Embed Text - Embedding model")
     ]
-    
+
     results = {}
-    
+
     for model, description in models:
         print(f"\n{'='*60}")
         print(f"PULLING MODEL: {model}")
         print(f"Description: {description}")
         print(f"{'='*60}")
-        
+
         success = run_command(['ollama', 'pull', model], f"Downloading {model}")
         results[model] = success
-        
+
         if success:
             print(f"✓ {model} downloaded successfully")
         else:
             print(f"✗ Failed to download {model}")
-    
+
     return results
 
 def verify_models():
@@ -93,18 +94,18 @@ def verify_models():
     print(f"\n{'='*60}")
     print("VERIFYING MODELS")
     print(f"{'='*60}")
-    
+
     try:
         result = subprocess.run(['ollama', 'list'], capture_output=True, text=True, timeout=30)
-        
+
         if result.returncode == 0:
             print("Available models:")
             print(result.stdout)
-            
+
             # Check for required models
-            required_models = ['deepseek-r1:8b', 'nomic-embed-text']
+            required_models = ['phi3:mini', 'nomic-embed-text']
             available_models = result.stdout
-            
+
             verification_results = {}
             for model in required_models:
                 if model in available_models:
@@ -113,12 +114,12 @@ def verify_models():
                 else:
                     print(f"✗ {model} is not available")
                     verification_results[model] = False
-            
+
             return verification_results
         else:
             print("✗ Failed to list models")
             return {}
-            
+
     except Exception as e:
         print(f"✗ Error verifying models: {e}")
         return {}
@@ -129,55 +130,55 @@ def main():
     print("=" * 60)
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
-    
+
     print("This script will download the required models for the RAG system:")
-    print("1. deepseek-r1:8b - Main reasoning model (~4.7GB)")
+    print("1. phi3:mini - Main reasoning model (~2.3GB)")
     print("2. nomic-embed-text - Embedding model (~274MB)")
     print()
     print("Note: This may take 10-30 minutes depending on your internet speed.")
     print()
-    
+
     # Check Ollama
     if not check_ollama():
         print("\n❌ Ollama is not available. Please install it first.")
         return False
-    
+
     # Ask for confirmation
     response = input("Continue with model download? (y/N): ").lower()
     if not response.startswith('y'):
         print("Setup cancelled.")
         return False
-    
+
     # Pull models
     print(f"\n{'='*60}")
     print("DOWNLOADING MODELS")
     print(f"{'='*60}")
-    
+
     pull_results = pull_models()
-    
+
     # Verify models
     verification_results = verify_models()
-    
+
     # Summary
     print(f"\n{'='*60}")
     print("SETUP SUMMARY")
     print(f"{'='*60}")
-    
+
     all_success = True
-    
-    for model in ['deepseek-r1:8b', 'nomic-embed-text']:
+
+    for model in ['phi3:mini', 'nomic-embed-text']:
         pull_status = "✓" if pull_results.get(model, False) else "✗"
         verify_status = "✓" if verification_results.get(model, False) else "✗"
-        
+
         print(f"{model}:")
         print(f"  Download: {pull_status}")
         print(f"  Available: {verify_status}")
-        
+
         if not (pull_results.get(model, False) and verification_results.get(model, False)):
             all_success = False
-    
+
     print(f"\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
+
     if all_success:
         print("\n🎉 SUCCESS! All models are ready.")
         print("\nNext steps:")
@@ -190,11 +191,11 @@ def main():
         print("1. Check your internet connection")
         print("2. Ensure Ollama is running properly")
         print("3. Try running the failed commands manually:")
-        
-        for model in ['deepseek-r1:8b', 'nomic-embed-text']:
+
+        for model in ['phi3:mini', 'nomic-embed-text']:
             if not pull_results.get(model, False):
                 print(f"   ollama pull {model}")
-    
+
     return all_success
 
 if __name__ == "__main__":
@@ -210,5 +211,5 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
-    
+
     input("\nPress Enter to exit...")

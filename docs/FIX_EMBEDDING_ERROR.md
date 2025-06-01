@@ -12,7 +12,7 @@ I've updated the RAG system to use the correct embedding model:
 
 ### Changes Made:
 - ✅ Updated `GoalkeeperRAG` to use `nomic-embed-text` for embeddings
-- ✅ Updated `OutfieldRAG` to use `nomic-embed-text` for embeddings  
+- ✅ Updated `OutfieldRAG` to use `nomic-embed-text` for embeddings
 - ✅ Updated all position-specific RAG classes
 - ✅ Created model setup script
 - ✅ Updated verification scripts
@@ -34,7 +34,7 @@ ollama list
 ```
 
 You should see both:
-- `deepseek-r1:8b` (reasoning model)
+- `phi3:mini` (reasoning model)
 - `nomic-embed-text` (embedding model)
 
 ### Step 3: Build RAG System
@@ -48,14 +48,14 @@ python build_goalkeeper_rag.py
 
 ## Model Details
 
-### DeepSeek R1 8B
+### Phi-3 Mini
 - **Purpose**: Text generation and reasoning
-- **Size**: ~4.7GB
+- **Size**: ~2.3GB
 - **Used for**: Answering questions about players
 
 ### Nomic Embed Text
 - **Purpose**: Text embeddings
-- **Size**: ~274MB  
+- **Size**: ~274MB
 - **Used for**: Converting player data to vectors for similarity search
 
 ## Why This Error Occurred
@@ -90,7 +90,7 @@ If `nomic-embed-text` doesn't work, you can try these alternatives:
 # Option 1: All-MiniLM (smaller, faster)
 ollama pull all-minilm
 
-# Option 2: BGE Large (larger, more accurate)  
+# Option 2: BGE Large (larger, more accurate)
 ollama pull bge-large
 
 # Option 3: E5 Large

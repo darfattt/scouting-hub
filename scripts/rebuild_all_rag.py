@@ -189,7 +189,7 @@ def main():
     else:
         print("\n❌ REBUILD FAILED!")
         print("\nPossible issues:")
-        print("1. Ollama models not available (deepseek-r1:8b, nomic-embed-text)")
+        print("1. Ollama models not available (phi3:mini, nomic-embed-text)")
         print("2. Data format issues")
         print("3. Position codes don't match expected patterns")
 

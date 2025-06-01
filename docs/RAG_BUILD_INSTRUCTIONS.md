@@ -13,7 +13,7 @@ Make sure Ollama is installed and running with the required models:
 ollama list
 
 # Pull required models (if not available)
-ollama pull deepseek-r1:8b      # Main reasoning model (~4.7GB)
+ollama pull phi3:mini           # Main reasoning model (~2.3GB)
 ollama pull nomic-embed-text    # Embedding model (~274MB)
 ```
 
