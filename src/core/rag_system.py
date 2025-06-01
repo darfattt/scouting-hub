@@ -1,13 +1,53 @@
 import os
 from typing import List, Dict, Any, Optional
-import faiss
 import numpy as np
-from langchain_ollama import OllamaEmbeddings
-from langchain_ollama import OllamaLLM
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain_community.vectorstores import FAISS
-from langchain.schema import Document
+
+# Try to import optional dependencies for RAG functionality
+try:
+    import faiss
+    from langchain_ollama import OllamaEmbeddings
+    from langchain_ollama import OllamaLLM
+    from langchain.chains import RetrievalQA
+    from langchain.prompts import PromptTemplate
+    from langchain_community.vectorstores import FAISS
+    from langchain.schema import Document
+    RAG_AVAILABLE = True
+except ImportError as e:
+    print(f"RAG dependencies not available: {e}")
+    print("RAG functionality will be disabled. Install faiss-cpu, langchain, and langchain-ollama to enable RAG features.")
+    RAG_AVAILABLE = False
+
+    # Create dummy classes to prevent import errors
+    class OllamaEmbeddings:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class OllamaLLM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class RetrievalQA:
+        @staticmethod
+        def from_chain_type(*args, **kwargs):
+            pass
+
+    class PromptTemplate:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FAISS:
+        @staticmethod
+        def from_documents(*args, **kwargs):
+            pass
+
+        @staticmethod
+        def load_local(*args, **kwargs):
+            pass
+
+    class Document:
+        def __init__(self, *args, **kwargs):
+            pass
+
 from .data_processor import GoalkeeperDataProcessor, OutfieldDataProcessor
 
 class GoalkeeperRAG:
@@ -35,15 +75,20 @@ class GoalkeeperRAG:
         self.embeddings_model_name = embeddings_model_name
         self.data_dir = data_dir
         self.vector_store_path = vector_store_path
+        self.rag_available = RAG_AVAILABLE
 
         # Initialize data processor
         self.data_processor = GoalkeeperDataProcessor(data_dir)
 
-        # Initialize embeddings
-        self.embeddings = OllamaEmbeddings(model=embeddings_model_name)
+        if RAG_AVAILABLE:
+            # Initialize embeddings
+            self.embeddings = OllamaEmbeddings(model=embeddings_model_name)
 
-        # Initialize LLM
-        self.llm = OllamaLLM(model=model_name)
+            # Initialize LLM
+            self.llm = OllamaLLM(model=model_name)
+        else:
+            self.embeddings = None
+            self.llm = None
 
         # Initialize vector store
         self.vector_store = None
@@ -55,6 +100,12 @@ class GoalkeeperRAG:
         Args:
             force_rebuild: Whether to force rebuilding the vector store even if it exists
         """
+        if not RAG_AVAILABLE:
+            print("RAG functionality not available. Skipping vector store build.")
+            # Still process the data for basic functionality
+            self.data_processor.process_data()
+            return
+
         # Check if vector store already exists
         if os.path.exists(self.vector_store_path) and not force_rebuild:
             print(f"Loading existing vector store from {self.vector_store_path}")
@@ -162,6 +213,12 @@ class GoalkeeperRAG:
         Returns:
             Dictionary containing the answer and source documents
         """
+        if not RAG_AVAILABLE:
+            return {
+                "answer": "RAG functionality is not available. This feature requires additional dependencies (faiss-cpu, langchain, langchain-ollama) and Ollama to be installed. Please use the other analysis features of the application.",
+                "source_documents": []
+            }
+
         qa_chain = self.setup_retrieval_qa()
         result = qa_chain({"query": question})
 
@@ -248,15 +305,20 @@ class OutfieldRAG:
         self.data_dir = data_dir
         self.vector_store_path = vector_store_path
         self.position_filter = position_filter
+        self.rag_available = RAG_AVAILABLE
 
         # Initialize data processor
         self.data_processor = OutfieldDataProcessor(data_dir, position_filter)
 
-        # Initialize embeddings
-        self.embeddings = OllamaEmbeddings(model=embeddings_model_name)
+        if RAG_AVAILABLE:
+            # Initialize embeddings
+            self.embeddings = OllamaEmbeddings(model=embeddings_model_name)
 
-        # Initialize LLM
-        self.llm = OllamaLLM(model=model_name)
+            # Initialize LLM
+            self.llm = OllamaLLM(model=model_name)
+        else:
+            self.embeddings = None
+            self.llm = None
 
         # Initialize vector store
         self.vector_store = None
@@ -268,6 +330,12 @@ class OutfieldRAG:
         Args:
             force_rebuild: Whether to force rebuilding the vector store even if it exists
         """
+        if not RAG_AVAILABLE:
+            print("RAG functionality not available. Skipping vector store build.")
+            # Still process the data for basic functionality
+            self.data_processor.process_data()
+            return
+
         # Check if vector store already exists
         if os.path.exists(self.vector_store_path) and not force_rebuild:
             print(f"Loading existing vector store from {self.vector_store_path}")
@@ -395,6 +463,12 @@ class OutfieldRAG:
         Returns:
             Dictionary containing the answer and source documents
         """
+        if not RAG_AVAILABLE:
+            return {
+                "answer": "RAG functionality is not available. This feature requires additional dependencies (faiss-cpu, langchain, langchain-ollama) and Ollama to be installed. Please use the other analysis features of the application.",
+                "source_documents": []
+            }
+
         # Check if we have any real data
         if not self.data_processor.player_data:
             position_text = f" {self.position_filter}" if self.position_filter else " outfield"

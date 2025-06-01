@@ -32,8 +32,14 @@ def get_rag_systems():
         systems['Goalkeepers'] = GoalkeeperRAG()
         systems['Goalkeepers'].build_vector_store()
     except Exception as e:
-        st.error(f"Failed to initialize Goalkeeper RAG: {e}")
-        systems['Goalkeepers'] = None
+        print(f"Failed to initialize Goalkeeper RAG: {e}")
+        # Create a minimal system that can still provide data access
+        try:
+            systems['Goalkeepers'] = GoalkeeperRAG()
+            systems['Goalkeepers'].data_processor.process_data()
+        except Exception as e2:
+            print(f"Failed to initialize basic Goalkeeper system: {e2}")
+            systems['Goalkeepers'] = None
 
     # Initialize outfield RAG systems (these may fail if no outfield data)
     outfield_systems = [
@@ -50,7 +56,13 @@ def get_rag_systems():
         except Exception as e:
             # This is expected if no outfield data is available
             print(f"Note: {name} RAG not available (no data): {e}")
-            systems[name] = None
+            # Try to create a minimal system for data access
+            try:
+                systems[name] = rag_class()
+                systems[name].data_processor.process_data()
+            except Exception as e2:
+                print(f"Failed to initialize basic {name} system: {e2}")
+                systems[name] = None
 
     return systems
 
@@ -63,6 +75,19 @@ st.markdown("""
 This application helps you analyze and compare players across all positions based on their performance statistics.
 Use the AI assistant to ask questions about players or explore the data directly.
 """)
+
+# Check if RAG functionality is available
+from core.rag_system import RAG_AVAILABLE
+if not RAG_AVAILABLE:
+    st.warning("""
+    ⚠️ **Limited Functionality**: RAG (AI Assistant) features are not available due to missing dependencies.
+
+    **Available features**: Player Search, Player Comparison, Performance Analysis, Profiler, Attribute Analysis, Find Similar Player
+
+    **Unavailable features**: AI Assistant (requires faiss-cpu, langchain, langchain-ollama, and Ollama)
+
+    All data analysis features work normally - only the AI chat functionality is disabled.
+    """)
 
 # Sidebar
 st.sidebar.title("Navigation & Settings")
@@ -88,9 +113,12 @@ if rag is None:
     st.error(f"The {position_type} RAG system is not available.")
     st.stop()
 
-# Page selection
-page = st.sidebar.radio("Select a page", [
-    "🤖 AI Assistant",
+# Page selection - conditionally include AI Assistant
+available_pages = []
+if RAG_AVAILABLE:
+    available_pages.append("🤖 AI Assistant")
+
+available_pages.extend([
     "🔍 Player Search",
     "⚖️ Player Comparison",
     "📈 Player Performance",
@@ -98,6 +126,8 @@ page = st.sidebar.radio("Select a page", [
     "📊 Attribute Analysis",
     "🔍 Find Similar Player"
 ])
+
+page = st.sidebar.radio("Select a page", available_pages)
 
 # Add global filters to the sidebar
 filters = add_global_filters()
