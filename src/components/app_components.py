@@ -1122,6 +1122,16 @@ def render_player_comparison(data_provider, filtered_data=None):
         st.warning("Not enough players found with the current filters. Try adjusting the global filters in the sidebar.")
         return
 
+    # Check if we're coming from Find Similar Player feature
+    from_find_similar = False
+    if 'comparison_players' in st.session_state and 'redirect_to_comparison' in st.session_state:
+        if st.session_state.get('redirect_to_comparison', False):
+            from_find_similar = True
+            st.info("🔗 **Quick Comparison from Find Similar Player**: Players have been pre-selected based on similarity analysis.")
+
+            # Clear the redirect flag
+            st.session_state['redirect_to_comparison'] = False
+
     # Allow selecting up to 3 players
     st.subheader("Select Players to Compare (up to 3)")
 
@@ -1133,7 +1143,14 @@ def render_player_comparison(data_provider, filtered_data=None):
         per_90_mode = st.toggle("Per 90 Minutes Stats", value=False, help="Calculate all statistics per 90 minutes of play instead of per match")
 
     # Number of players to compare (2 or 3)
-    num_players = st.radio("Number of players to compare:", [2, 3], horizontal=True)
+    if from_find_similar and 'comparison_players' in st.session_state:
+        # Pre-set based on Find Similar Player selection
+        preselected_players = st.session_state['comparison_players']
+        num_players = st.radio("Number of players to compare:", [2, 3],
+                              index=0 if len(preselected_players) == 2 else 1,
+                              horizontal=True)
+    else:
+        num_players = st.radio("Number of players to compare:", [2, 3], horizontal=True)
 
     # Select players
     selected_players = []
@@ -1141,7 +1158,17 @@ def render_player_comparison(data_provider, filtered_data=None):
     if selection_mode:
         # Multiselect mode
         max_selections = 3 if num_players == 3 else 2
-        selected_players = st.multiselect("Select players", players, max_selections=max_selections)
+
+        # Pre-populate if coming from Find Similar Player
+        default_selection = []
+        if from_find_similar and 'comparison_players' in st.session_state:
+            preselected = st.session_state['comparison_players']
+            # Filter to only include players that exist in current filtered data
+            default_selection = [p for p in preselected if p in players][:max_selections]
+
+        selected_players = st.multiselect("Select players", players,
+                                        default=default_selection,
+                                        max_selections=max_selections)
 
         # Ensure we have the right number of players
         if len(selected_players) > num_players:
@@ -1150,20 +1177,47 @@ def render_player_comparison(data_provider, filtered_data=None):
         # Individual selection mode
         remaining_players = players.copy()
 
+        # Pre-populate if coming from Find Similar Player
+        preselected = []
+        if from_find_similar and 'comparison_players' in st.session_state:
+            preselected = [p for p in st.session_state['comparison_players'] if p in players]
+
         # First player
-        player1 = st.selectbox("Select first player:", remaining_players, index=0, key="player1")
+        default_idx_1 = 0
+        if preselected and len(preselected) > 0 and preselected[0] in remaining_players:
+            default_idx_1 = remaining_players.index(preselected[0])
+
+        player1 = st.selectbox("Select first player:", remaining_players, index=default_idx_1, key="player1")
         selected_players.append(player1)
         remaining_players = [p for p in remaining_players if p != player1]
 
         # Second player
-        player2 = st.selectbox("Select second player:", remaining_players, index=0, key="player2")
+        default_idx_2 = 0
+        if preselected and len(preselected) > 1 and preselected[1] in remaining_players:
+            default_idx_2 = remaining_players.index(preselected[1])
+
+        player2 = st.selectbox("Select second player:", remaining_players, index=default_idx_2, key="player2")
         selected_players.append(player2)
         remaining_players = [p for p in remaining_players if p != player2]
 
         # Third player (if selected)
         if num_players == 3:
-            player3 = st.selectbox("Select third player:", remaining_players, index=0, key="player3")
+            default_idx_3 = 0
+            if preselected and len(preselected) > 2 and preselected[2] in remaining_players:
+                default_idx_3 = remaining_players.index(preselected[2])
+
+            player3 = st.selectbox("Select third player:", remaining_players, index=default_idx_3, key="player3")
             selected_players.append(player3)
+
+    # Clear the session state after using it
+    if from_find_similar and 'comparison_players' in st.session_state:
+        # Keep it for one more page load, then clear
+        if st.session_state.get('comparison_used', False):
+            del st.session_state['comparison_players']
+            if 'comparison_used' in st.session_state:
+                del st.session_state['comparison_used']
+        else:
+            st.session_state['comparison_used'] = True
 
     # Competition selection for each player
     st.subheader("Select Competitions (Optional)")

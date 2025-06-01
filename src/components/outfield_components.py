@@ -23,6 +23,16 @@ def render_outfield_player_comparison(rag, filtered_data, position_type="All"):
         st.warning("No player data available. Please check your data source.")
         return
 
+    # Check if we're coming from Find Similar Player feature
+    from_find_similar = False
+    if 'comparison_players' in st.session_state and 'redirect_to_comparison' in st.session_state:
+        if st.session_state.get('redirect_to_comparison', False):
+            from_find_similar = True
+            st.info("🔗 **Quick Comparison from Find Similar Player**: Players have been pre-selected based on similarity analysis.")
+
+            # Clear the redirect flag
+            st.session_state['redirect_to_comparison'] = False
+
     # Allow selecting up to 3 players
     st.subheader("Select Players to Compare (up to 3)")
 
@@ -44,26 +54,56 @@ def render_outfield_player_comparison(rag, filtered_data, position_type="All"):
     # Player selection based on mode
     selected_players = []
     if selection_mode:
+        # Pre-populate if coming from Find Similar Player
+        default_selection = []
+        if from_find_similar and 'comparison_players' in st.session_state:
+            preselected = st.session_state['comparison_players']
+            # Filter to only include players that exist in current filtered data
+            default_selection = [p for p in preselected if p in available_players][:3]
+
         # Multiselect mode
         selected_players = st.multiselect(
             "Select players to compare:",
             available_players,
+            default=default_selection,
             max_selections=3,
             help="Choose 2-3 players to compare their statistics"
         )
     else:
+        # Pre-populate if coming from Find Similar Player
+        preselected = []
+        if from_find_similar and 'comparison_players' in st.session_state:
+            preselected = [p for p in st.session_state['comparison_players'] if p in available_players]
+
         # Individual selection mode
         cols = st.columns(3)
         for i, col in enumerate(cols):
             with col:
+                # Set default selection if available
+                default_options = [""] + available_players
+                default_index = 0
+                if i < len(preselected) and preselected[i] in available_players:
+                    default_index = default_options.index(preselected[i])
+
                 player = st.selectbox(
                     f"Player {i+1}:",
-                    [""] + available_players,
-                    key=f"player_{i}",
+                    default_options,
+                    index=default_index,
+                    key=f"outfield_player_{i}",
                     help=f"Select player {i+1} for comparison"
                 )
                 if player:
                     selected_players.append(player)
+
+    # Clear the session state after using it
+    if from_find_similar and 'comparison_players' in st.session_state:
+        # Keep it for one more page load, then clear
+        if st.session_state.get('outfield_comparison_used', False):
+            del st.session_state['comparison_players']
+            if 'outfield_comparison_used' in st.session_state:
+                del st.session_state['outfield_comparison_used']
+        else:
+            st.session_state['outfield_comparison_used'] = True
 
     if len(selected_players) < 2:
         st.info("Please select at least 2 players to compare.")
