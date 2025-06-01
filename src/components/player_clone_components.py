@@ -397,7 +397,7 @@ def display_similar_players(selected_player: str, similar_players: List[Tuple[st
             latest_competition = latest_match.get("Competition", "Unknown")
 
         # Calculate strongest stats values for this player
-        strongest_stats_values = []
+        strongest_stats_values = {}
         for stat in selected_stats:
             if stat in player_stats:
                 value = player_stats[stat]
@@ -407,19 +407,13 @@ def display_similar_players(selected_player: str, similar_players: List[Tuple[st
                     minutes = player_stats.get("minutes", 0)
                     if minutes > 0:
                         value = (value / minutes) * 90
-                        strongest_stats_values.append(f"{value:.2f}")
+                        strongest_stats_values[stat] = f"{value:.2f}"
                     else:
-                        strongest_stats_values.append("0.00")
+                        strongest_stats_values[stat] = "0.00"
                 else:
-                    strongest_stats_values.append(str(value))
+                    strongest_stats_values[stat] = str(value)
             else:
-                strongest_stats_values.append("0")
-
-        # Create strongest stats display string
-        strongest_stats_display = " | ".join([
-            f"{stat.replace('_', ' ').title()}: {value}"
-            for stat, value in zip(selected_stats, strongest_stats_values)
-        ])
+                strongest_stats_values[stat] = "0"
 
         # Calculate role scores for this player
         role_scores = calculate_role_scores(player_name, player_stats, role_weights, player_data, per_90_mode)
@@ -433,13 +427,17 @@ def display_similar_players(selected_player: str, similar_players: List[Tuple[st
             "Position": player_stats.get("position", "Unknown"),
             "Age": player_stats.get("age", 0),
             "Minutes": player_stats.get("minutes", 0),
-            "Similarity Score": similarity_score * 100,  # Convert to percentage
-            "Strongest Stats": strongest_stats_display
+            "Similarity Score": similarity_score * 100  # Convert to percentage
         }
 
         # Add role scores as dynamic columns
         for role_name, score in role_scores.items():
             player_display_data[f"{role_name} Score"] = score
+
+        # Add individual strongest stats columns after role columns
+        for stat in selected_stats:
+            stat_display_name = stat.replace("_", " ").title()
+            player_display_data[stat_display_name] = strongest_stats_values.get(stat, "0")
 
         display_data.append(player_display_data)
     
@@ -461,11 +459,6 @@ def display_similar_players(selected_player: str, similar_players: List[Tuple[st
                 min_value=0,
                 max_value=100,
                 format="%.1f%%"
-            ),
-            "Strongest Stats": st.column_config.TextColumn(
-                "Strongest Stats",
-                help="Values for the strongest stats used in comparison",
-                width="large"
             )
         }
 
@@ -479,6 +472,32 @@ def display_similar_players(selected_player: str, similar_players: List[Tuple[st
                 max_value=100,
                 format="%.1f%%"
             )
+
+        # Add individual strongest stats columns after role columns
+        for stat in selected_stats:
+            stat_display_name = stat.replace("_", " ").title()
+
+            # Determine if this is a numeric stat for proper formatting
+            if per_90_mode and stat != "minutes":
+                column_config[stat_display_name] = st.column_config.NumberColumn(
+                    stat_display_name,
+                    help=f"{stat_display_name} per 90 minutes",
+                    format="%.2f"
+                )
+            else:
+                # Check if the stat values are numeric
+                sample_values = [player_data[p[0]].get(stat, 0) for p in players_to_show[:3] if p[0] in player_data]
+                if sample_values and all(isinstance(v, (int, float)) for v in sample_values):
+                    column_config[stat_display_name] = st.column_config.NumberColumn(
+                        stat_display_name,
+                        help=f"{stat_display_name} total value",
+                        format="%d" if all(isinstance(v, int) or v.is_integer() for v in sample_values if isinstance(v, (int, float))) else "%.1f"
+                    )
+                else:
+                    column_config[stat_display_name] = st.column_config.TextColumn(
+                        stat_display_name,
+                        help=f"{stat_display_name} value"
+                    )
 
         # Display the dataframe
         st.dataframe(
@@ -520,7 +539,9 @@ def display_similar_players(selected_player: str, similar_players: List[Tuple[st
         # Show stats used for comparison
         st.subheader("📊 Stats Used for Comparison")
         stats_text = ", ".join([stat.replace("_", " ").title() for stat in selected_stats])
-        st.info(f"Similarity calculated based on: {stats_text}")
+        mode_text = " (per 90 minutes)" if per_90_mode else " (total values)"
+        st.info(f"Similarity calculated based on: {stats_text}{mode_text}")
+        st.info("💡 **Individual stat columns** show the actual values for each of the strongest stats used in the similarity calculation.")
     else:
         st.warning("No similar players found.")
 
