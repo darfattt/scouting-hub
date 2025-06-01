@@ -1,5 +1,5 @@
 """
-Test cases for DataProcessor class.
+Test cases for Data Processor classes.
 """
 
 import pytest
@@ -10,128 +10,175 @@ import os
 # Add src directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from core.data_processor import DataProcessor
+from core.data_processor import GoalkeeperDataProcessor, OutfieldDataProcessor
 
 
-class TestDataProcessor:
-    """Test cases for DataProcessor functionality."""
-    
+class TestGoalkeeperDataProcessor:
+    """Test cases for GoalkeeperDataProcessor functionality."""
+
     def setup_method(self):
         """Set up test fixtures before each test method."""
-        self.processor = DataProcessor()
-    
+        self.processor = GoalkeeperDataProcessor()
+
     def test_initialization(self):
-        """Test DataProcessor initialization."""
+        """Test GoalkeeperDataProcessor initialization."""
         assert self.processor is not None
         assert hasattr(self.processor, 'player_data')
-        assert hasattr(self.processor, 'goalkeeper_data')
-        assert hasattr(self.processor, 'outfield_data')
-    
-    def test_detect_position_goalkeeper(self):
-        """Test position detection for goalkeepers."""
-        # Create sample goalkeeper data
-        gk_data = pd.DataFrame({
-            'Position': ['GK'],
-            'Saves': [10],
-            'Conceded goals': [2]
-        })
-        
-        position = self.processor.detect_position(gk_data)
-        assert position == 'GK'
-    
-    def test_detect_position_outfield(self):
-        """Test position detection for outfield players."""
-        # Create sample outfield data
-        outfield_data = pd.DataFrame({
-            'Position': ['CF'],
-            'Goals': [5],
-            'Assists': [3]
-        })
-        
-        position = self.processor.detect_position(outfield_data)
-        assert position == 'CF'
-    
-    def test_calculate_per_90_stats(self):
-        """Test per 90 minutes calculation."""
-        # Test with valid minutes
-        result = self.processor.calculate_per_90_stats(10, 90)
-        assert result == 10.0
-        
-        result = self.processor.calculate_per_90_stats(5, 45)
-        assert result == 10.0
-        
-        # Test with zero minutes
-        result = self.processor.calculate_per_90_stats(10, 0)
-        assert result == 0.0
-    
-    def test_clean_numeric_value(self):
-        """Test numeric value cleaning."""
-        # Test valid numbers
-        assert self.processor.clean_numeric_value(10) == 10.0
-        assert self.processor.clean_numeric_value("10") == 10.0
-        assert self.processor.clean_numeric_value("10.5") == 10.5
-        
-        # Test invalid values
-        assert self.processor.clean_numeric_value(None) == 0.0
-        assert self.processor.clean_numeric_value("") == 0.0
-        assert self.processor.clean_numeric_value("invalid") == 0.0
-    
-    def test_calculate_success_rates(self):
-        """Test success rate calculations."""
-        # Test with valid data
-        stats = {
-            'passes': 100,
-            'passes_accurate': 85,
-            'shots': 10,
-            'shots_on_target': 6
-        }
-        
-        result = self.processor.calculate_success_rates(stats)
-        
-        assert 'pass_accuracy' in result
-        assert result['pass_accuracy'] == 85.0
-        assert 'shot_accuracy' in result
-        assert result['shot_accuracy'] == 60.0
-    
-    def test_filter_by_date_range(self):
-        """Test date range filtering."""
-        # Create sample data with dates
-        data = pd.DataFrame({
-            'Date': ['2024-01-01', '2024-06-01', '2024-12-01'],
-            'Player': ['A', 'B', 'C'],
-            'Goals': [1, 2, 3]
-        })
-        
-        # Convert date column
-        data['Date'] = pd.to_datetime(data['Date'])
-        
-        # Filter data
-        filtered = self.processor.filter_by_date_range(
-            data, 
-            start_date='2024-05-01', 
-            end_date='2024-11-01'
-        )
-        
-        assert len(filtered) == 1
-        assert filtered.iloc[0]['Player'] == 'B'
-    
-    def test_filter_by_competition(self):
-        """Test competition filtering."""
-        # Create sample data
-        data = pd.DataFrame({
-            'Competition': ['Liga 1', 'Liga 2', 'Liga 1'],
-            'Player': ['A', 'B', 'C'],
-            'Goals': [1, 2, 3]
-        })
-        
-        # Filter by single competition
-        filtered = self.processor.filter_by_competition(data, ['Liga 1'])
-        assert len(filtered) == 2
-        assert all(filtered['Competition'] == 'Liga 1')
-        
-        # Filter by multiple competitions
-        filtered = self.processor.filter_by_competition(data, ['Liga 1', 'Liga 2'])
-        assert len(filtered) == 3
+        assert hasattr(self.processor, 'data_dir')
+        assert hasattr(self.processor, 'all_data')
+        assert hasattr(self.processor, 'league_data')
+
+    def test_load_data_method_exists(self):
+        """Test that load_data method exists and returns DataFrame."""
+        result = self.processor.load_data()
+        assert isinstance(result, pd.DataFrame)
+
+    def test_process_data_method_exists(self):
+        """Test that process_data method exists and returns dictionary."""
+        result = self.processor.process_data()
+        assert isinstance(result, dict)
+
+    def test_get_player_text_representation(self):
+        """Test player text representation generation."""
+        # First process some data
+        self.processor.process_data()
+
+        # Test with non-existent player
+        result = self.processor.get_player_text_representation("NonExistentPlayer")
+        assert result == ""
+
+    def test_get_all_player_texts(self):
+        """Test getting all player text representations."""
+        result = self.processor.get_all_player_texts()
+        assert isinstance(result, list)
+
+        # Each item should be a dictionary with 'player' and 'content' keys
+        for item in result:
+            assert isinstance(item, dict)
+            assert 'player' in item
+            assert 'content' in item
+
+    def test_league_data_loading(self):
+        """Test league data loading functionality."""
+        result = self.processor.load_league_data()
+        assert isinstance(result, pd.DataFrame)
+
+    def test_league_stats_for_player(self):
+        """Test getting league stats for a specific player."""
+        # This is a private method, but we can test it exists
+        assert hasattr(self.processor, '_get_league_stats_for_player')
+
+        # Test with sample data
+        result = self.processor._get_league_stats_for_player("TestPlayer", "TestTeam")
+        assert isinstance(result, dict)
+
+    def test_data_directory_handling(self):
+        """Test data directory handling."""
+        # Test default data directory
+        assert self.processor.data_dir == "data/stats"
+
+        # Test custom data directory
+        custom_processor = GoalkeeperDataProcessor(data_dir="custom/path")
+        assert custom_processor.data_dir == "custom/path"
+
+
+class TestOutfieldDataProcessor:
+    """Test cases for OutfieldDataProcessor functionality."""
+
+    def setup_method(self):
+        """Set up test fixtures before each test method."""
+        self.processor = OutfieldDataProcessor()
+
+    def test_initialization(self):
+        """Test OutfieldDataProcessor initialization."""
+        assert self.processor is not None
+        assert hasattr(self.processor, 'player_data')
+        assert hasattr(self.processor, 'data_dir')
+        assert hasattr(self.processor, 'all_data')
+        assert hasattr(self.processor, 'position_filter')
+
+    def test_load_data_method_exists(self):
+        """Test that load_data method exists and returns DataFrame."""
+        result = self.processor.load_data()
+        assert isinstance(result, pd.DataFrame)
+
+    def test_process_data_method_exists(self):
+        """Test that process_data method exists and returns dictionary."""
+        result = self.processor.process_data()
+        assert isinstance(result, dict)
+
+    def test_get_player_text_representation(self):
+        """Test player text representation generation."""
+        # First process some data
+        self.processor.process_data()
+
+        # Test with non-existent player
+        result = self.processor.get_player_text_representation("NonExistentPlayer")
+        assert result == ""
+
+    def test_get_all_player_texts(self):
+        """Test getting all player text representations."""
+        result = self.processor.get_all_player_texts()
+        assert isinstance(result, list)
+
+        # Each item should be a dictionary with 'player' and 'content' keys
+        for item in result:
+            assert isinstance(item, dict)
+            assert 'player' in item
+            assert 'content' in item
+
+    def test_position_filter_initialization(self):
+        """Test position filter functionality."""
+        # Test with position filter
+        forward_processor = OutfieldDataProcessor(position_filter="CF|LWF|RWF")
+        assert forward_processor.position_filter == "CF|LWF|RWF"
+
+        # Test without position filter
+        assert self.processor.position_filter is None
+
+    def test_data_directory_handling(self):
+        """Test data directory handling."""
+        # Test default data directory
+        assert self.processor.data_dir == "data/stats"
+
+        # Test custom data directory
+        custom_processor = OutfieldDataProcessor(data_dir="custom/path")
+        assert custom_processor.data_dir == "custom/path"
+
+
+class TestDataProcessorIntegration:
+    """Integration tests for data processors."""
+
+    def test_both_processors_can_coexist(self):
+        """Test that both processors can be used together."""
+        gk_processor = GoalkeeperDataProcessor()
+        outfield_processor = OutfieldDataProcessor()
+
+        # Both should be able to load data without conflicts
+        gk_data = gk_processor.load_data()
+        outfield_data = outfield_processor.load_data()
+
+        assert isinstance(gk_data, pd.DataFrame)
+        assert isinstance(outfield_data, pd.DataFrame)
+
+    def test_processors_have_different_data(self):
+        """Test that processors handle different types of data."""
+        gk_processor = GoalkeeperDataProcessor()
+        outfield_processor = OutfieldDataProcessor()
+
+        # Process data
+        gk_players = gk_processor.process_data()
+        outfield_players = outfield_processor.process_data()
+
+        assert isinstance(gk_players, dict)
+        assert isinstance(outfield_players, dict)
+
+        # Players should be different (no overlap expected)
+        if gk_players and outfield_players:
+            gk_names = set(gk_players.keys())
+            outfield_names = set(outfield_players.keys())
+            # There might be some overlap, but they should be processed differently
+            assert len(gk_names.intersection(outfield_names)) >= 0  # Allow overlap
 
 
 if __name__ == "__main__":

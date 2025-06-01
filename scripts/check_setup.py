@@ -9,6 +9,15 @@ import sys
 import subprocess
 from pathlib import Path
 
+# Add src directory to Python path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, project_root)
+sys.path.insert(0, src_path)
+
+# Change to project root directory
+os.chdir(project_root)
+
 def check_python_packages():
     """Check if required Python packages are installed."""
     print("Checking Python packages...")

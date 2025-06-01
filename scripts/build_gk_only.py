@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 """
 Build Goalkeeper RAG Only
 Simple script to build just the goalkeeper RAG system without trying outfield systems.
@@ -6,6 +7,15 @@ Simple script to build just the goalkeeper RAG system without trying outfield sy
 
 import os
 from datetime import datetime
+
+# Add src directory to Python path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, project_root)
+sys.path.insert(0, src_path)
+
+# Change to project root directory
+os.chdir(project_root)
 
 def main():
     print("=" * 60)
@@ -21,7 +31,7 @@ def main():
     try:
         # Import and build goalkeeper RAG
         print("Step 1: Importing GoalkeeperRAG...")
-        from rag_system import GoalkeeperRAG
+        from core.rag_system import GoalkeeperRAG
         print("✓ Import successful")
         
         print("\nStep 2: Initializing GoalkeeperRAG...")
@@ -55,7 +65,7 @@ def main():
         
         # Check vector store file
         print("\nStep 6: Checking vector store file...")
-        if os.path.exists("vector_store"):
+        if os.path.exists("storage/vector_store"):
             print("✓ Vector store file exists: vector_store/")
         else:
             print("✗ Vector store file not found")

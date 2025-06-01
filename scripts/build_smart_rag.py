@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 """
 Smart RAG Builder
 Automatically detects available data and builds appropriate RAG systems.
@@ -8,6 +9,15 @@ import os
 import pandas as pd
 import glob
 from datetime import datetime
+
+# Add src directory to Python path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, project_root)
+sys.path.insert(0, src_path)
+
+# Change to project root directory
+os.chdir(project_root)
 
 def analyze_data_files():
     """Analyze CSV files to determine what types of players are available."""
@@ -78,7 +88,7 @@ def build_goalkeeper_rag():
     print("Building Goalkeeper RAG...")
 
     try:
-        from rag_system import GoalkeeperRAG
+        from core.rag_system import GoalkeeperRAG
         rag = GoalkeeperRAG()
         rag.build_vector_store(force_rebuild=False)
 
@@ -126,7 +136,7 @@ def build_outfield_rag_systems(available_types):
             print(f"  Building {name}...")
 
             # Dynamic import
-            from rag_system import OutfieldRAG, ForwardRAG, MidfielderRAG, DefenderRAG
+            from core.rag_system import OutfieldRAG, ForwardRAG, MidfielderRAG, DefenderRAG
             rag_class = globals().get(class_name) or getattr(__import__('rag_system'), class_name)
 
             rag = rag_class()

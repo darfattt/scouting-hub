@@ -8,6 +8,15 @@ import os
 import sys
 from datetime import datetime
 
+# Add src directory to Python path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, project_root)
+sys.path.insert(0, src_path)
+
+# Change to project root directory
+os.chdir(project_root)
+
 def main():
     print("=" * 60)
     print("BUILDING GOALKEEPER RAG SYSTEM")
@@ -18,7 +27,7 @@ def main():
     try:
         # Step 1: Import
         print("Step 1: Importing RAG system...")
-        from rag_system import GoalkeeperRAG
+        from core.rag_system import GoalkeeperRAG
         print("✓ Import successful")
         
         # Step 2: Initialize
@@ -28,7 +37,7 @@ def main():
         
         # Step 3: Check existing vector store
         print("\nStep 3: Checking for existing vector store...")
-        if os.path.exists("vector_store"):
+        if os.path.exists("storage/vector_store"):
             print("✓ Found existing vector store")
             rebuild = input("Rebuild vector store? (y/N): ").lower().startswith('y')
         else:

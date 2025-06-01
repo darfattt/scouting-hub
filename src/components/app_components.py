@@ -119,54 +119,168 @@ def filter_player_data(data_provider, filters: Dict[str, Any]) -> Dict[str, Dict
                 filtered_player["goals_conceded_per_90"] = goals_conceded_per_90
 
             else:  # Outfield player data
+                # Basic offensive stats
                 total_goals = sum(match.get("Goals", 0) for match in filtered_matches)
                 total_assists = sum(match.get("Assists", 0) for match in filtered_matches)
                 total_shots = sum(match.get("Shots", 0) for match in filtered_matches)
-                total_shots_on_target = sum(match.get("Shots on target", 0) for match in filtered_matches)
+                total_shots_on_target = sum(match.get("Shots On Target", 0) for match in filtered_matches)
+                total_xg = sum(match.get("xG", 0) for match in filtered_matches)
+
+                # General action stats
+                total_actions = sum(match.get("Total actions", 0) for match in filtered_matches)
+                total_actions_successful = sum(match.get("Total actions successful", 0) for match in filtered_matches)
+
+                # Passing stats
                 total_passes = sum(match.get("Passes", 0) for match in filtered_matches)
                 total_passes_accurate = sum(match.get("Passes accurate", 0) for match in filtered_matches)
+                total_long_passes = sum(match.get("Long passes", 0) for match in filtered_matches)
+                total_long_passes_accurate = sum(match.get("Long passes accurate", 0) for match in filtered_matches)
+
+                # Crossing stats
+                total_crosses = sum(match.get("Crosses", 0) for match in filtered_matches)
+                total_crosses_accurate = sum(match.get("Crosses accurate", 0) for match in filtered_matches)
+
+                # Dribbling stats
                 total_dribbles = sum(match.get("Dribbles", 0) for match in filtered_matches)
                 total_dribbles_successful = sum(match.get("Dribbles successful", 0) for match in filtered_matches)
+
+                # Dueling stats
                 total_duels = sum(match.get("Duels", 0) for match in filtered_matches)
                 total_duels_won = sum(match.get("Duels won", 0) for match in filtered_matches)
+                total_aerial_duels = sum(match.get("Aerial duels", 0) for match in filtered_matches)
+                total_aerial_duels_won = sum(match.get("Aerial duels won", 0) for match in filtered_matches)
+
+                # Defensive stats
                 total_interceptions = sum(match.get("Interceptions", 0) for match in filtered_matches)
+                total_losses = sum(match.get("Losses", 0) for match in filtered_matches)
+                total_losses_own_half = sum(match.get("Losses own half", 0) for match in filtered_matches)
                 total_recoveries = sum(match.get("Recoveries", 0) for match in filtered_matches)
+                total_recoveries_opp_half = sum(match.get("Recoveries opp. half", 0) for match in filtered_matches)
 
                 # Count cards
                 yellow_cards = sum(1 for match in filtered_matches if match.get('Yellow card', 0) > 0)
                 red_cards = sum(1 for match in filtered_matches if match.get('Red card', 0) > 0)
 
-                # Calculate derived metrics
-                goals_per_90 = (total_goals / total_minutes * 90) if total_minutes > 0 else 0
-                assists_per_90 = (total_assists / total_minutes * 90) if total_minutes > 0 else 0
+                # Calculate success rates (following data_processor.py pattern)
+                total_actions_success_rate = (total_actions_successful / total_actions * 100) if total_actions > 0 else 0
                 pass_accuracy = (total_passes_accurate / total_passes * 100) if total_passes > 0 else 0
-                shot_accuracy = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
+                long_pass_accuracy = (total_long_passes_accurate / total_long_passes * 100) if total_long_passes > 0 else 0
+                cross_accuracy = (total_crosses_accurate / total_crosses * 100) if total_crosses > 0 else 0
                 dribble_success_rate = (total_dribbles_successful / total_dribbles * 100) if total_dribbles > 0 else 0
                 duel_success_rate = (total_duels_won / total_duels * 100) if total_duels > 0 else 0
+                aerial_duel_success_rate = (total_aerial_duels_won / total_aerial_duels * 100) if total_aerial_duels > 0 else 0
+                shot_accuracy = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
 
-                # Update player statistics
+                # Calculate per 90 minutes statistics (following data_processor.py pattern)
+                def per_90(value):
+                    return (value / total_minutes * 90) if total_minutes > 0 else 0
+
+                goals_per_90 = per_90(total_goals)
+                assists_per_90 = per_90(total_assists)
+                shots_per_90 = per_90(total_shots)
+                shots_on_target_per_90 = per_90(total_shots_on_target)
+                xg_per_90 = per_90(total_xg)
+                passes_per_90 = per_90(total_passes)
+                passes_accurate_per_90 = per_90(total_passes_accurate)
+                long_passes_per_90 = per_90(total_long_passes)
+                long_passes_accurate_per_90 = per_90(total_long_passes_accurate)
+                crosses_per_90 = per_90(total_crosses)
+                crosses_accurate_per_90 = per_90(total_crosses_accurate)
+                dribbles_per_90 = per_90(total_dribbles)
+                dribbles_successful_per_90 = per_90(total_dribbles_successful)
+                duels_per_90 = per_90(total_duels)
+                duels_won_per_90 = per_90(total_duels_won)
+                aerial_duels_per_90 = per_90(total_aerial_duels)
+                aerial_duels_won_per_90 = per_90(total_aerial_duels_won)
+                interceptions_per_90 = per_90(total_interceptions)
+                losses_per_90 = per_90(total_losses)
+                losses_own_half_per_90 = per_90(total_losses_own_half)
+                recoveries_per_90 = per_90(total_recoveries)
+                recoveries_opp_half_per_90 = per_90(total_recoveries_opp_half)
+                total_actions_per_90 = per_90(total_actions)
+                total_actions_successful_per_90 = per_90(total_actions_successful)
+
+                # Update player statistics - Basic info
                 filtered_player["matches"] = total_matches
                 filtered_player["minutes"] = total_minutes
+
+                # General stats
+                filtered_player["total_actions"] = total_actions
+                filtered_player["total_actions_successful"] = total_actions_successful
+
+                # Offensive stats
                 filtered_player["goals"] = total_goals
                 filtered_player["assists"] = total_assists
                 filtered_player["shots"] = total_shots
                 filtered_player["shots_on_target"] = total_shots_on_target
+                filtered_player["xg"] = total_xg
+
+                # Passing stats
                 filtered_player["passes"] = total_passes
                 filtered_player["passes_accurate"] = total_passes_accurate
+                filtered_player["long_passes"] = total_long_passes
+                filtered_player["long_passes_accurate"] = total_long_passes_accurate
+
+                # Crossing stats
+                filtered_player["crosses"] = total_crosses
+                filtered_player["crosses_accurate"] = total_crosses_accurate
+
+                # Dribbling stats
                 filtered_player["dribbles"] = total_dribbles
                 filtered_player["dribbles_successful"] = total_dribbles_successful
+
+                # Dueling stats
                 filtered_player["duels"] = total_duels
                 filtered_player["duels_won"] = total_duels_won
+                filtered_player["aerial_duels"] = total_aerial_duels
+                filtered_player["aerial_duels_won"] = total_aerial_duels_won
+
+                # Defensive stats
                 filtered_player["interceptions"] = total_interceptions
+                filtered_player["losses"] = total_losses
+                filtered_player["losses_own_half"] = total_losses_own_half
                 filtered_player["recoveries"] = total_recoveries
+                filtered_player["recoveries_opp_half"] = total_recoveries_opp_half
+
+                # Cards
                 filtered_player["yellow_cards"] = yellow_cards
                 filtered_player["red_cards"] = red_cards
-                filtered_player["goals_per_90"] = goals_per_90
-                filtered_player["assists_per_90"] = assists_per_90
+
+                # Success rates
+                filtered_player["total_actions_success_rate"] = total_actions_success_rate
                 filtered_player["pass_accuracy"] = pass_accuracy
-                filtered_player["shot_accuracy"] = shot_accuracy
+                filtered_player["long_pass_accuracy"] = long_pass_accuracy
+                filtered_player["cross_accuracy"] = cross_accuracy
                 filtered_player["dribble_success_rate"] = dribble_success_rate
                 filtered_player["duel_success_rate"] = duel_success_rate
+                filtered_player["aerial_duel_success_rate"] = aerial_duel_success_rate
+                filtered_player["shot_accuracy"] = shot_accuracy
+
+                # Per 90 minutes stats
+                filtered_player["goals_per_90"] = goals_per_90
+                filtered_player["assists_per_90"] = assists_per_90
+                filtered_player["shots_per_90"] = shots_per_90
+                filtered_player["shots_on_target_per_90"] = shots_on_target_per_90
+                filtered_player["xg_per_90"] = xg_per_90
+                filtered_player["passes_per_90"] = passes_per_90
+                filtered_player["passes_accurate_per_90"] = passes_accurate_per_90
+                filtered_player["long_passes_per_90"] = long_passes_per_90
+                filtered_player["long_passes_accurate_per_90"] = long_passes_accurate_per_90
+                filtered_player["crosses_per_90"] = crosses_per_90
+                filtered_player["crosses_accurate_per_90"] = crosses_accurate_per_90
+                filtered_player["dribbles_per_90"] = dribbles_per_90
+                filtered_player["dribbles_successful_per_90"] = dribbles_successful_per_90
+                filtered_player["duels_per_90"] = duels_per_90
+                filtered_player["duels_won_per_90"] = duels_won_per_90
+                filtered_player["aerial_duels_per_90"] = aerial_duels_per_90
+                filtered_player["aerial_duels_won_per_90"] = aerial_duels_won_per_90
+                filtered_player["interceptions_per_90"] = interceptions_per_90
+                filtered_player["losses_per_90"] = losses_per_90
+                filtered_player["losses_own_half_per_90"] = losses_own_half_per_90
+                filtered_player["recoveries_per_90"] = recoveries_per_90
+                filtered_player["recoveries_opp_half_per_90"] = recoveries_opp_half_per_90
+                filtered_player["total_actions_per_90"] = total_actions_per_90
+                filtered_player["total_actions_successful_per_90"] = total_actions_successful_per_90
 
             filtered_data[player_name] = filtered_player
 
@@ -2098,8 +2212,8 @@ def render_player_comparison(data_provider, filtered_data=None):
 
             data.append({
                 'name': player,
-                'x': x_percentile,
-                'y': y_percentile,
+                'x': x_val,  # Use exact filtered value instead of percentile
+                'y': y_val,  # Use exact filtered value instead of percentile
                 'color': player_color,
                 'text': hover_text,
                 'is_selected': is_selected_player,
@@ -2115,13 +2229,30 @@ def render_player_comparison(data_provider, filtered_data=None):
         # Create plotly figure
         fig = go.Figure()
 
+        # Calculate axis ranges based on actual data values
+        x_min = min(player['x'] for player in data)
+        x_max = max(player['x'] for player in data)
+        y_min = min(player['y'] for player in data)
+        y_max = max(player['y'] for player in data)
+
+        # Add some padding to the ranges
+        x_padding = (x_max - x_min) * 0.1 if x_max > x_min else 1
+        y_padding = (y_max - y_min) * 0.1 if y_max > y_min else 1
+
+        x_range = [max(0, x_min - x_padding), x_max + x_padding]
+        y_range = [max(0, y_min - y_padding), y_max + y_padding]
+
+        # Calculate midpoints for quadrant lines
+        x_mid = (x_range[0] + x_range[1]) / 2
+        y_mid = (y_range[0] + y_range[1]) / 2
+
         # Add quadrant lines
         fig.add_shape(
-            type="line", x0=0, y0=50, x1=100, y1=50,
+            type="line", x0=x_range[0], y0=y_mid, x1=x_range[1], y1=y_mid,
             line=dict(color="#666666", width=1)
         )
         fig.add_shape(
-            type="line", x0=50, y0=0, x1=50, y1=100,
+            type="line", x0=x_mid, y0=y_range[0], x1=x_mid, y1=y_range[1],
             line=dict(color="#666666", width=1)
         )
 
@@ -2186,14 +2317,18 @@ def render_player_comparison(data_provider, filtered_data=None):
                 y_high = role_descriptions.get(y_stat, {}).get("high", f"High {y_stat.replace('_', ' ').title()}")
                 y_low = role_descriptions.get(y_stat, {}).get("low", f"Low {y_stat.replace('_', ' ').title()}")
 
+            # Calculate quadrant positions based on actual data ranges
+            x_quarter = (x_range[1] - x_range[0]) / 4
+            y_quarter = (y_range[1] - y_range[0]) / 4
+
             return [
-                dict(x=25, y=75, text=f"{x_low}<br>{y_high}", showarrow=False,
+                dict(x=x_range[0] + x_quarter, y=y_mid + y_quarter, text=f"{x_low}<br>{y_high}", showarrow=False,
                      font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
-                dict(x=75, y=75, text=f"{x_high}<br>{y_high}", showarrow=False,
+                dict(x=x_mid + x_quarter, y=y_mid + y_quarter, text=f"{x_high}<br>{y_high}", showarrow=False,
                      font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
-                dict(x=25, y=25, text=f"{x_low}<br>{y_low}", showarrow=False,
+                dict(x=x_range[0] + x_quarter, y=y_range[0] + y_quarter, text=f"{x_low}<br>{y_low}", showarrow=False,
                      font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
-                dict(x=75, y=25, text=f"{x_high}<br>{y_low}", showarrow=False,
+                dict(x=x_mid + x_quarter, y=y_range[0] + y_quarter, text=f"{x_high}<br>{y_low}", showarrow=False,
                      font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center")
             ]
 
@@ -2266,28 +2401,22 @@ def render_player_comparison(data_provider, filtered_data=None):
             xaxis=dict(
                 title=dict(text=x_display.upper() + (" (PER 90)" if per_90_mode and x_stat not in ["minutes", "matches"] else ""),
                          font=dict(color="#CCCCCC", size=18)),
-                range=[0, 100],
+                range=x_range,
                 gridcolor="#444444",
                 zerolinecolor="#444444",
                 tickfont=dict(color="#CCCCCC"),
                 showline=True,
-                linecolor="#666666",
-                tickmode='array',
-                tickvals=[0, 25, 50, 75, 100],
-                ticktext=['0%', '25%', '50%', '75%', '100%']
+                linecolor="#666666"
             ),
             yaxis=dict(
                 title=dict(text=y_display.upper() + (" (PER 90)" if per_90_mode and y_stat not in ["minutes", "matches"] else ""),
                          font=dict(color="#CCCCCC", size=18)),
-                range=[0, 100],
+                range=y_range,
                 gridcolor="#444444",
                 zerolinecolor="#444444",
                 tickfont=dict(color="#CCCCCC", size=16),
                 showline=True,
-                linecolor="#666666",
-                tickmode='array',
-                tickvals=[0, 25, 50, 75, 100],
-                ticktext=['0%', '25%', '50%', '75%', '100%']
+                linecolor="#666666"
             ),
             showlegend=False,
             margin=dict(l=60, r=60, t=60, b=60),

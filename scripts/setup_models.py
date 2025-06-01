@@ -8,6 +8,15 @@ import subprocess
 import sys
 from datetime import datetime
 
+# Add src directory to Python path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, project_root)
+sys.path.insert(0, src_path)
+
+# Change to project root directory
+os.chdir(project_root)
+
 def run_command(command, description):
     """Run a command and return success status."""
     print(f"Running: {description}")

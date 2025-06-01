@@ -531,7 +531,7 @@ class OutfieldDataProcessor:
             total_goals = safe_sum('Goals')
             total_assists = safe_sum('Assists')
             total_shots = safe_sum('Shots')
-            total_shots_on_target = safe_sum('Shots on target')
+            total_shots_on_target = safe_sum('Shots On Target')
             total_xg = safe_sum('xG')
 
             # Passing stats
@@ -572,7 +572,7 @@ class OutfieldDataProcessor:
 
             # Additional derived metrics
             shot_accuracy = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
-
+            
             # Calculate per 90 minutes statistics
             def per_90(value):
                 return (value / total_minutes * 90) if total_minutes > 0 else 0

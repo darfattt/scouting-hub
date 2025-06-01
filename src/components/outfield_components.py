@@ -307,6 +307,9 @@ def calculate_outfield_stats(matches, per_90_mode=False):
 
     # Calculate comprehensive derived metrics (success rates)
     stats['total_actions_success_rate'] = (total_actions_successful / total_actions * 100) if total_actions > 0 else 0
+    # Note: These calculations are also done in data_processor.py
+    # This function is used for comparison calculations where we need to recalculate
+    # based on selected players only, so we keep the calculations here
     stats['pass_accuracy'] = (total_passes_accurate / total_passes * 100) if total_passes > 0 else 0
     stats['long_pass_accuracy'] = (total_long_passes_accurate / total_long_passes * 100) if total_long_passes > 0 else 0
     stats['cross_accuracy'] = (total_crosses_accurate / total_crosses * 100) if total_crosses > 0 else 0
@@ -2485,8 +2488,8 @@ def create_outfield_scatter_plot(players, player_stats_list, x_stat, y_stat, pos
 
         data.append({
             'name': player,
-            'x': x_percentile,
-            'y': y_percentile,
+            'x': x_val,  # Use exact filtered value instead of percentile
+            'y': y_val,  # Use exact filtered value instead of percentile
             'color': player_color,
             'text': hover_text,
             'is_selected': is_selected_player,
@@ -2513,7 +2516,7 @@ def create_outfield_scatter_plot(players, player_stats_list, x_stat, y_stat, pos
     )
 
     # Generate quadrant descriptions for outfield players
-    def get_outfield_quadrant_descriptions(x_stat, y_stat, position_type):
+    def get_outfield_quadrant_descriptions(x_stat, y_stat, position_type, x_range, y_range):
         # Define outfield role descriptions based on position
         if position_type == "Forwards":
             role_descriptions = {
@@ -2550,19 +2553,56 @@ def create_outfield_scatter_plot(players, player_stats_list, x_stat, y_stat, pos
         y_high = role_descriptions.get(y_stat, {}).get("high", f"High {y_stat.replace('_', ' ').title()}")
         y_low = role_descriptions.get(y_stat, {}).get("low", f"Low {y_stat.replace('_', ' ').title()}")
 
+        # Calculate quadrant positions based on actual data ranges
+        x_mid = (x_range[0] + x_range[1]) / 2
+        y_mid = (y_range[0] + y_range[1]) / 2
+        x_quarter = (x_range[1] - x_range[0]) / 4
+        y_quarter = (y_range[1] - y_range[0]) / 4
+
         return [
-            dict(x=25, y=75, text=f"{x_low}<br>{y_high}", showarrow=False,
+            dict(x=x_range[0] + x_quarter, y=y_mid + y_quarter, text=f"{x_low}<br>{y_high}", showarrow=False,
                  font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
-            dict(x=75, y=75, text=f"{x_high}<br>{y_high}", showarrow=False,
+            dict(x=x_mid + x_quarter, y=y_mid + y_quarter, text=f"{x_high}<br>{y_high}", showarrow=False,
                  font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
-            dict(x=25, y=25, text=f"{x_low}<br>{y_low}", showarrow=False,
+            dict(x=x_range[0] + x_quarter, y=y_range[0] + y_quarter, text=f"{x_low}<br>{y_low}", showarrow=False,
                  font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center"),
-            dict(x=75, y=25, text=f"{x_high}<br>{y_low}", showarrow=False,
+            dict(x=x_mid + x_quarter, y=y_range[0] + y_quarter, text=f"{x_high}<br>{y_low}", showarrow=False,
                  font=dict(color="#AAAAAA", size=12), xanchor="center", yanchor="middle", align="center")
         ]
 
-    # Add quadrant descriptions
-    fig.update_layout(annotations=get_outfield_quadrant_descriptions(x_stat, y_stat, position_type))
+    # Calculate axis ranges based on actual data values first
+    x_min = min(player['x'] for player in data)
+    x_max = max(player['x'] for player in data)
+    y_min = min(player['y'] for player in data)
+    y_max = max(player['y'] for player in data)
+
+    # Add some padding to the ranges
+    x_padding = (x_max - x_min) * 0.1 if x_max > x_min else 1
+    y_padding = (y_max - y_min) * 0.1 if y_max > y_min else 1
+
+    x_range = [max(0, x_min - x_padding), x_max + x_padding]
+    y_range = [max(0, y_min - y_padding), y_max + y_padding]
+
+    # Calculate midpoints for quadrant lines
+    x_mid = (x_range[0] + x_range[1]) / 2
+    y_mid = (y_range[0] + y_range[1]) / 2
+
+    # Add quadrant lines to divide the plot into four sections
+    fig.add_shape(
+        type="line",
+        x0=x_range[0], y0=y_mid,
+        x1=x_range[1], y1=y_mid,
+        line=dict(color="#666666", width=1)
+    )
+    fig.add_shape(
+        type="line",
+        x0=x_mid, y0=y_range[0],
+        x1=x_mid, y1=y_range[1],
+        line=dict(color="#666666", width=1)
+    )
+
+    # Add quadrant descriptions (now that x_range and y_range are defined)
+    fig.update_layout(annotations=get_outfield_quadrant_descriptions(x_stat, y_stat, position_type, x_range, y_range))
 
     # Add scatter points for each player
     for player in data:
@@ -2612,28 +2652,22 @@ def create_outfield_scatter_plot(players, player_stats_list, x_stat, y_stat, pos
         xaxis=dict(
             title=dict(text=x_display.upper() + (" (PER 90)" if per_90_mode and x_stat not in ["minutes", "matches"] else ""),
                      font=dict(color="#CCCCCC", size=18)),
-            range=[0, 100],
+            range=x_range,
             gridcolor="#444444",
             zerolinecolor="#444444",
             tickfont=dict(color="#CCCCCC"),
             showline=True,
-            linecolor="#666666",
-            tickmode='array',
-            tickvals=[0, 25, 50, 75, 100],
-            ticktext=['0%', '25%', '50%', '75%', '100%']
+            linecolor="#666666"
         ),
         yaxis=dict(
             title=dict(text=y_display.upper() + (" (PER 90)" if per_90_mode and y_stat not in ["minutes", "matches"] else ""),
                      font=dict(color="#CCCCCC", size=18)),
-            range=[0, 100],
+            range=y_range,
             gridcolor="#444444",
             zerolinecolor="#444444",
             tickfont=dict(color="#CCCCCC", size=16),
             showline=True,
-            linecolor="#666666",
-            tickmode='array',
-            tickvals=[0, 25, 50, 75, 100],
-            ticktext=['0%', '25%', '50%', '75%', '100%']
+            linecolor="#666666"
         ),
         showlegend=False,
         margin=dict(l=60, r=60, t=60, b=60),
@@ -2997,13 +3031,11 @@ def render_outfield_player_search(rag, filtered_data, position_type):
 
     # Display results
     st.subheader(f"Results: {len(filtered_players)} players found")
-
     if filtered_players:
         # Create a DataFrame for display
         data = []
         for player in filtered_players:
             stats = filtered_data[player]
-
             # Create row data based on position type
             row_data = {
                 "Player": player,
@@ -3018,7 +3050,9 @@ def render_outfield_player_search(rag, filtered_data, position_type):
 
             # Add position-specific stats
             if position_type in ["Forwards", "All Outfield"]:
-                row_data["Shot Accuracy"] = f"{stats.get('shot_accuracy', 0):.1f}%"
+                # Use pre-calculated shot accuracy from data_processor.py
+                shot_accuracy_val = stats.get('shot_accuracy', 0)
+                row_data["Shot Accuracy"] = f"{shot_accuracy_val:.1f}%"
 
             if position_type in ["Midfielders", "All Outfield"]:
                 row_data["Dribble Success"] = f"{stats.get('dribble_success_rate', 0):.1f}%"
