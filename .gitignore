@@ -1,8 +1,2 @@
 comparison/
-data/stats/
-vector_store/
-vector_store_outfield/
-vector_store_forwards/
-vector_store_midfielders/
-vector_store_defenders/
 __pycache__/

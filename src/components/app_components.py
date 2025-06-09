@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import datetime
 import numpy as np
 import os
@@ -11,7 +10,6 @@ from plotly.subplots import make_subplots
 from scipy import stats
 from typing import Any, Dict
 
-# We've already imported scipy.stats above
 
 def add_global_filters() -> Dict[str, Any]:
     """
