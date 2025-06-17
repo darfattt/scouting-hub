@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import datetime
 
 def render_player_search_profiler(data_provider, filtered_data=None, position_type="Goalkeepers"):
     """
@@ -201,6 +202,63 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
                 "passes_accurate": {"name": "Passes Accurate", "weight": 0.15, "negative": False},
                 "interceptions": {"name": "Interceptions", "weight": 0.15, "negative": False},
                 "recoveries": {"name": "Recoveries", "weight": 0.15, "negative": False}
+            },
+            # Role-based performance categories for Center Forwards
+            "Advance Forward": {
+                "goals": {"name": "Goals", "weight": 0.3, "negative": False},
+                "shots": {"name": "Shots", "weight": 0.2, "negative": False},
+                "shots_on_target": {"name": "Shots on Target", "weight": 0.15, "negative": False},
+                "dribbles_successful": {"name": "Dribbles Successful", "weight": 0.15, "negative": False},
+                "passes": {"name": "Passes", "weight": 0.1, "negative": False},
+                "minutes": {"name": "Minutes", "weight": 0.1, "negative": False}
+            },
+            "Pressing Forward": {
+                "duels_won": {"name": "Duels Won", "weight": 0.25, "negative": False},
+                "recoveries": {"name": "Recoveries", "weight": 0.2, "negative": False},
+                "interceptions": {"name": "Interceptions", "weight": 0.2, "negative": False},
+                "goals": {"name": "Goals", "weight": 0.15, "negative": False},
+                "shots": {"name": "Shots", "weight": 0.1, "negative": False},
+                "duel_success_rate": {"name": "Duel Success Rate", "weight": 0.1, "negative": False}
+            },
+            "Deep-lying Forward": {
+                "assists": {"name": "Assists", "weight": 0.25, "negative": False},
+                "passes_accurate": {"name": "Passes Accurate", "weight": 0.25, "negative": False},
+                "pass_accuracy": {"name": "Pass Accuracy", "weight": 0.15, "negative": False},
+                "passes": {"name": "Passes", "weight": 0.15, "negative": False},
+                "dribbles": {"name": "Dribbles", "weight": 0.1, "negative": False},
+                "goals": {"name": "Goals", "weight": 0.1, "negative": False}
+            },
+            "Poacher": {
+                "goals": {"name": "Goals", "weight": 0.5, "negative": False},
+                "shots": {"name": "Shots", "weight": 0.3, "negative": False},
+                "shots_on_target": {"name": "Shots on Target", "weight": 0.2, "negative": False}
+            },
+            # Role-based performance categories for Center Backs
+            "No-Nonsense Centre-Back": {
+                "duels_won": {"name": "Duels Won", "weight": 0.25, "negative": False},
+                "duel_success_rate": {"name": "Duel Success Rate", "weight": 0.2, "negative": False},
+                "recoveries": {"name": "Recoveries", "weight": 0.2, "negative": False},
+                "interceptions": {"name": "Interceptions", "weight": 0.15, "negative": False},
+                "duels": {"name": "Duels", "weight": 0.1, "negative": False},
+                "passes_accurate": {"name": "Passes Accurate", "weight": 0.1, "negative": False}
+            },
+            "Central Defender": {
+                "duels_won": {"name": "Duels Won", "weight": 0.2, "negative": False},
+                "duel_success_rate": {"name": "Duel Success Rate", "weight": 0.2, "negative": False},
+                "interceptions": {"name": "Interceptions", "weight": 0.15, "negative": False},
+                "recoveries": {"name": "Recoveries", "weight": 0.15, "negative": False},
+                "passes_accurate": {"name": "Passes Accurate", "weight": 0.15, "negative": False},
+                "duels": {"name": "Duels", "weight": 0.1, "negative": False},
+                "pass_accuracy": {"name": "Pass Accuracy", "weight": 0.05, "negative": False}
+            },
+            "Ball Playing Defender": {
+                "passes_accurate": {"name": "Passes Accurate", "weight": 0.25, "negative": False},
+                "pass_accuracy": {"name": "Pass Accuracy", "weight": 0.2, "negative": False},
+                "passes": {"name": "Passes", "weight": 0.15, "negative": False},
+                "duels_won": {"name": "Duels Won", "weight": 0.15, "negative": False},
+                "duel_success_rate": {"name": "Duel Success Rate", "weight": 0.1, "negative": False},
+                "interceptions": {"name": "Interceptions", "weight": 0.1, "negative": False},
+                "recoveries": {"name": "Recoveries", "weight": 0.05, "negative": False}
             }
         }
 
@@ -225,6 +283,98 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
     with col3:
         min_minutes = st.slider("Minimum Minutes Played", min_value=0, max_value=3000, value=90, step=90,
                                help="Filter players by minimum minutes played")
+
+    # Date filter section
+    st.subheader("📅 Date Filter")
+    use_date_filter = st.checkbox("Enable Date Filter", value=False, help="Filter matches by date range")
+
+    if use_date_filter:
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input(
+                "Start Date",
+                value=datetime.date(2025, 5, 1),
+                min_value=datetime.date(2020, 1, 1),
+                max_value=datetime.date(2030, 12, 31),
+                help="Start date for filtering matches"
+            )
+        with col2:
+            end_date = st.date_input(
+                "End Date",
+                value=datetime.date(2025, 6, 30),
+                min_value=datetime.date(2020, 1, 1),
+                max_value=datetime.date(2030, 12, 31),
+                help="End date for filtering matches"
+            )
+
+        # Apply date filter to player data
+        if start_date and end_date:
+            st.info(f"📊 Filtering data from {start_date} to {end_date}")
+            original_player_count = len(player_data)
+            player_data = apply_date_filter(player_data, start_date, end_date)
+
+            # Update players list after filtering
+            players = list(player_data.keys())
+            players.sort()
+
+            # Show filtering results
+            filtered_player_count = len(players)
+            st.success(f"✅ Date filter applied: {filtered_player_count} players found (was {original_player_count})")
+
+            # Debug information
+            if st.checkbox("🔍 Show Date Filter Debug Info", value=False):
+                st.markdown("### 🔍 Date Filter Debug Information")
+
+                # Show overall filtering results
+                st.markdown(f"**Original player count**: {original_player_count}")
+                st.markdown(f"**Filtered player count**: {filtered_player_count}")
+                st.markdown(f"**Date range**: {start_date} to {end_date}")
+
+                # Check if David da Silva is in the data
+                if "David da Silva" in player_data:
+                    david_stats = player_data["David da Silva"]
+                    st.markdown("**🎯 David da Silva Debug Info (After Date Filter):**")
+                    st.markdown(f"**Filtered Minutes**: {david_stats.get('minutes', 'N/A')}")
+                    st.markdown(f"**Filtered Matches**: {david_stats.get('matches', 'N/A')}")
+
+                    # Show match data details
+                    match_data = david_stats.get('match_data', [])
+                    st.markdown(f"**Match Data Count**: {len(match_data)}")
+
+                    if match_data:
+                        # Calculate total minutes from match data to verify
+                        total_minutes_from_matches = sum(match.get('Minutes played', 0) for match in match_data)
+                        st.markdown(f"**Total Minutes from Match Data**: {total_minutes_from_matches}")
+
+                        # Show date range
+                        dates = [match.get('Date', '') for match in match_data if match.get('Date')]
+                        if dates:
+                            min_date = min(dates)
+                            max_date = max(dates)
+                            st.markdown(f"**Date Range in Filtered Data**: {min_date} to {max_date}")
+
+                        # Show first few matches for verification
+                        st.markdown("**First 3 Filtered Matches:**")
+                        for i, match in enumerate(match_data[:3]):
+                            date = match.get('Date', 'No Date')
+                            minutes = match.get('Minutes played', 0)
+                            st.write(f"  {i+1}. {date} - {minutes} minutes")
+
+                        # Check if minutes match
+                        if david_stats.get('minutes', 0) == total_minutes_from_matches:
+                            st.success("✅ Minutes calculation is consistent!")
+                        else:
+                            st.error(f"❌ Minutes mismatch! Stored: {david_stats.get('minutes', 0)}, Calculated: {total_minutes_from_matches}")
+                else:
+                    st.warning("David da Silva not found in filtered data")
+
+                    # Show available players for debugging
+                    available_players = list(player_data.keys())[:10]  # Show first 10
+                    st.markdown(f"**Available players (first 10)**: {', '.join(available_players)}")
+
+            if not players:
+                st.warning("No players found with matches in the selected date range.")
+                return
 
     # Custom metric selection section
     st.subheader("📊 Select Metrics")
@@ -635,6 +785,223 @@ def get_category_description(category_name):
         "Build Up": "Measures player's contribution to team's build-up play and possession retention.",
         "Ball Retention": "Evaluates player's ability to keep possession and avoid losing the ball.",
         "Defensive Score": "Assesses player's defensive contributions including duels, interceptions, and recoveries.",
-        "Versatile Score": "Measures player's all-around contribution across multiple aspects of the game."
+        "Versatile Score": "Measures player's all-around contribution across multiple aspects of the game.",
+        # Role-based descriptions for Center Forwards
+        "Advance Forward": "Evaluates a forward's ability to score goals and create chances through direct attacking play, dribbling, and shooting.",
+        "Pressing Forward": "Measures a forward's defensive contribution through pressing, winning duels, and recovering possession in the final third.",
+        "Deep-lying Forward": "Assesses a forward's playmaking abilities, focusing on assists, passing accuracy, and creative distribution.",
+        "Poacher": "Focuses purely on goal-scoring efficiency and clinical finishing ability in the penalty area.",
+        # Role-based descriptions for Center Backs
+        "No-Nonsense Centre-Back": "Evaluates a defender's ability to win duels, make recoveries, and provide solid defensive fundamentals.",
+        "Central Defender": "Measures a balanced defensive approach combining dueling, interceptions, and basic passing distribution.",
+        "Ball Playing Defender": "Assesses a defender's ability to contribute to build-up play through accurate passing while maintaining defensive duties."
     }
     return descriptions.get(category_name, "Custom performance category")
+
+def apply_date_filter(player_data, start_date, end_date):
+    """
+    Apply date filter to player data and recalculate statistics.
+
+    Args:
+        player_data: Dictionary of player data
+        start_date: Start date for filtering
+        end_date: End date for filtering
+
+    Returns:
+        Filtered player data with recalculated statistics
+    """
+    filtered_data = {}
+
+    for player_name, player_stats in player_data.items():
+        # Create a deep copy of the player data to avoid reference issues
+        import copy
+        filtered_player = copy.deepcopy(player_stats)
+
+        # Filter match data
+        filtered_matches = []
+        for match in player_stats.get("match_data", []):
+            include_match = True
+
+            # Apply date filter
+            if "Date" in match:
+                try:
+                    # Try multiple date formats
+                    date_str = str(match["Date"]).strip()
+                    match_date = None
+
+                    # Common date formats to try
+                    date_formats = [
+                        "%Y-%m-%d",           # 2024-08-15
+                        "%d/%m/%Y",           # 15/08/2024
+                        "%m/%d/%Y",           # 08/15/2024
+                        "%d-%m-%Y",           # 15-08-2024
+                        "%Y/%m/%d",           # 2024/08/15
+                        "%d.%m.%Y",           # 15.08.2024
+                        "%Y-%m-%d %H:%M:%S",  # 2024-08-15 14:30:00
+                        "%d/%m/%Y %H:%M:%S",  # 15/08/2024 14:30:00
+                        "%m/%d/%Y %H:%M:%S",  # 08/15/2024 14:30:00
+                        "%Y-%m-%d %H:%M",     # 2024-08-15 14:30
+                        "%d/%m/%Y %H:%M",     # 15/08/2024 14:30
+                    ]
+
+                    # Try each format until one works
+                    for date_format in date_formats:
+                        try:
+                            match_date = datetime.datetime.strptime(date_str, date_format).date()
+                            break
+                        except (ValueError, TypeError):
+                            continue
+
+                    if match_date:
+                        if match_date < start_date or match_date > end_date:
+                            include_match = False
+                    else:
+                        # If we can't parse the date, log it for debugging and keep the match
+                        print(f"Could not parse date '{date_str}' for player {player_name}")
+
+                except Exception as e:
+                    # If any error occurs, log it and keep the match
+                    print(f"Date parsing error for player {player_name}: {match.get('Date', 'No Date')} - Error: {e}")
+            
+            if include_match:
+                filtered_matches.append(match)
+        # Only include player if they have matches after filtering
+        if filtered_matches:
+            # Update match data
+            filtered_player["match_data"] = filtered_matches
+            # Recalculate aggregate statistics based on player type
+            total_matches = len(filtered_matches)
+            total_minutes = sum(match.get("Minutes played", 0) for match in filtered_matches)
+
+            # Check if this is goalkeeper or outfield player data
+            if "saves" in player_stats:  # Goalkeeper data
+                total_conceded = sum(match.get("Conceded goals", 0) for match in filtered_matches)
+                total_saves = sum(match.get("Saves", 0) for match in filtered_matches)
+                total_shots_against = sum(match.get("Shots against", 0) for match in filtered_matches)
+
+                # Calculate derived metrics
+                save_percentage = (total_saves / total_shots_against * 100) if total_shots_against > 0 else 0
+                goals_conceded_per_90 = (total_conceded / total_minutes * 90) if total_minutes > 0 else 0
+
+                # Update player statistics
+                filtered_player["matches"] = total_matches
+                filtered_player["minutes"] = total_minutes
+                filtered_player["conceded_goals"] = total_conceded
+                filtered_player["saves"] = total_saves
+                filtered_player["shots_against"] = total_shots_against
+                filtered_player["save_percentage"] = save_percentage
+                filtered_player["goals_conceded_per_90"] = goals_conceded_per_90
+
+            else:  # Outfield player data
+                # Basic offensive stats
+                total_goals = sum(match.get("Goals", 0) for match in filtered_matches)
+                total_assists = sum(match.get("Assists", 0) for match in filtered_matches)
+                total_shots = sum(match.get("Shots", 0) for match in filtered_matches)
+                total_shots_on_target = sum(match.get("Shots On Target", 0) for match in filtered_matches)
+                total_xg = sum(match.get("xG", 0) for match in filtered_matches)
+
+                # General action stats
+                total_actions = sum(match.get("Total actions", 0) for match in filtered_matches)
+                total_actions_successful = sum(match.get("Total actions successful", 0) for match in filtered_matches)
+
+                # Passing stats
+                total_passes = sum(match.get("Passes", 0) for match in filtered_matches)
+                total_passes_accurate = sum(match.get("Passes accurate", 0) for match in filtered_matches)
+                total_long_passes = sum(match.get("Long passes", 0) for match in filtered_matches)
+                total_long_passes_accurate = sum(match.get("Long passes accurate", 0) for match in filtered_matches)
+
+                # Crossing stats
+                total_crosses = sum(match.get("Crosses", 0) for match in filtered_matches)
+                total_crosses_accurate = sum(match.get("Crosses accurate", 0) for match in filtered_matches)
+
+                # Dribbling stats
+                total_dribbles = sum(match.get("Dribbles", 0) for match in filtered_matches)
+                total_dribbles_successful = sum(match.get("Dribbles successful", 0) for match in filtered_matches)
+
+                # Dueling stats
+                total_duels = sum(match.get("Duels", 0) for match in filtered_matches)
+                total_duels_won = sum(match.get("Duels won", 0) for match in filtered_matches)
+                total_aerial_duels = sum(match.get("Aerial duels", 0) for match in filtered_matches)
+                total_aerial_duels_won = sum(match.get("Aerial duels won", 0) for match in filtered_matches)
+
+                # Defensive stats
+                total_interceptions = sum(match.get("Interceptions", 0) for match in filtered_matches)
+                total_losses = sum(match.get("Losses", 0) for match in filtered_matches)
+                total_losses_own_half = sum(match.get("Losses own half", 0) for match in filtered_matches)
+                total_recoveries = sum(match.get("Recoveries", 0) for match in filtered_matches)
+                total_recoveries_opp_half = sum(match.get("Recoveries opp. half", 0) for match in filtered_matches)
+
+                # Count cards
+                yellow_cards = sum(1 for match in filtered_matches if match.get('Yellow card', 0) > 0)
+                red_cards = sum(1 for match in filtered_matches if match.get('Red card', 0) > 0)
+
+                # Calculate success rates
+                total_actions_success_rate = (total_actions_successful / total_actions * 100) if total_actions > 0 else 0
+                pass_accuracy = (total_passes_accurate / total_passes * 100) if total_passes > 0 else 0
+                long_pass_accuracy = (total_long_passes_accurate / total_long_passes * 100) if total_long_passes > 0 else 0
+                cross_accuracy = (total_crosses_accurate / total_crosses * 100) if total_crosses > 0 else 0
+                dribble_success_rate = (total_dribbles_successful / total_dribbles * 100) if total_dribbles > 0 else 0
+                duel_success_rate = (total_duels_won / total_duels * 100) if total_duels > 0 else 0
+                aerial_duel_success_rate = (total_aerial_duels_won / total_aerial_duels * 100) if total_aerial_duels > 0 else 0
+                shot_accuracy = (total_shots_on_target / total_shots * 100) if total_shots > 0 else 0
+
+                # Update player statistics - Basic info
+                filtered_player["matches"] = total_matches
+                filtered_player["minutes"] = total_minutes
+
+                # General stats
+                filtered_player["total_actions"] = total_actions
+                filtered_player["total_actions_successful"] = total_actions_successful
+
+                # Offensive stats
+                filtered_player["goals"] = total_goals
+                filtered_player["assists"] = total_assists
+                filtered_player["shots"] = total_shots
+                filtered_player["shots_on_target"] = total_shots_on_target
+                filtered_player["xg"] = total_xg
+
+                # Passing stats
+                filtered_player["passes"] = total_passes
+                filtered_player["passes_accurate"] = total_passes_accurate
+                filtered_player["long_passes"] = total_long_passes
+                filtered_player["long_passes_accurate"] = total_long_passes_accurate
+
+                # Crossing stats
+                filtered_player["crosses"] = total_crosses
+                filtered_player["crosses_accurate"] = total_crosses_accurate
+
+                # Dribbling stats
+                filtered_player["dribbles"] = total_dribbles
+                filtered_player["dribbles_successful"] = total_dribbles_successful
+
+                # Dueling stats
+                filtered_player["duels"] = total_duels
+                filtered_player["duels_won"] = total_duels_won
+                filtered_player["aerial_duels"] = total_aerial_duels
+                filtered_player["aerial_duels_won"] = total_aerial_duels_won
+
+                # Defensive stats
+                filtered_player["interceptions"] = total_interceptions
+                filtered_player["losses"] = total_losses
+                filtered_player["losses_own_half"] = total_losses_own_half
+                filtered_player["recoveries"] = total_recoveries
+                filtered_player["recoveries_opp_half"] = total_recoveries_opp_half
+
+                # Cards
+                filtered_player["yellow_cards"] = yellow_cards
+                filtered_player["red_cards"] = red_cards
+
+                # Success rates
+                filtered_player["total_actions_success_rate"] = total_actions_success_rate
+                filtered_player["pass_accuracy"] = pass_accuracy
+                filtered_player["long_pass_accuracy"] = long_pass_accuracy
+                filtered_player["cross_accuracy"] = cross_accuracy
+                filtered_player["dribble_success_rate"] = dribble_success_rate
+                filtered_player["duel_success_rate"] = duel_success_rate
+                filtered_player["aerial_duel_success_rate"] = aerial_duel_success_rate
+                filtered_player["shot_accuracy"] = shot_accuracy
+
+            filtered_data[player_name] = filtered_player
+            #print(player_name, filtered_player["minutes"])
+
+    return filtered_data

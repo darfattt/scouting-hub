@@ -21,7 +21,7 @@ def add_global_filters() -> Dict[str, Any]:
     st.sidebar.markdown("## Global Filters")
 
     # Date range filter
-    use_date_filter = st.sidebar.checkbox("Filter by date range", value=True)
+    use_date_filter = st.sidebar.checkbox("Filter by date range", value=False)
 
     start_date = datetime.date(2024, 8, 1)
     end_date = datetime.date(2025, 6, 30)
