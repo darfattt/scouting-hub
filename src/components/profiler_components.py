@@ -270,21 +270,7 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
         help="Choose a preset performance category to analyze players"
     )
 
-    # Configuration options
-    st.subheader("⚙️ Configuration")
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        per_90_mode = st.checkbox("Per 90 Minutes", value=False, help="Calculate statistics per 90 minutes of play")
-
-    with col2:
-        show_top_10_only = st.checkbox("Show Top 10 Only", value=True, help="Display only the top 10 players")
-
-    with col3:
-        min_minutes = st.slider("Minimum Minutes Played", min_value=0, max_value=3000, value=90, step=90,
-                               help="Filter players by minimum minutes played")
-
-    # Date filter section
+    # Date filter section (first filter)
     st.subheader("📅 Date Filter")
     use_date_filter = st.checkbox("Enable Date Filter", value=False, help="Filter matches by date range")
 
@@ -375,6 +361,20 @@ def render_player_search_profiler(data_provider, filtered_data=None, position_ty
             if not players:
                 st.warning("No players found with matches in the selected date range.")
                 return
+
+    # Configuration options
+    st.subheader("⚙️ Configuration")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        per_90_mode = st.checkbox("Per 90 Minutes", value=False, help="Calculate statistics per 90 minutes of play")
+
+    with col2:
+        show_top_10_only = st.checkbox("Show Top 10 Only", value=True, help="Display only the top 10 players")
+
+    with col3:
+        min_minutes = st.slider("Minimum Minutes Played", min_value=0, max_value=3000, value=90, step=90,
+                               help="Filter players by minimum minutes played")
 
     # Custom metric selection section
     st.subheader("📊 Select Metrics")
