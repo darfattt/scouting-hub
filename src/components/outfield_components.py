@@ -2399,12 +2399,15 @@ def display_outfield_scatter_plot_analysis(selected_players, player_stats, posit
     # Additional competition selection if including other players
     additional_competition = None
     if include_additional_players:
-        # Get available competitions from the original filtered data
-        if hasattr(st.session_state, 'filtered_data') and st.session_state.filtered_data:
+        # Get available competitions from the date-filtered data
+        if filtered_data:
             all_competitions = set()
-            for player_data in st.session_state.filtered_data.values():
-                if 'competitions' in player_data:
-                    all_competitions.add(player_data['competitions'])
+            for player_data in filtered_data.values():
+                # Extract competitions from match data
+                for match in player_data.get("match_data", []):
+                    competition = match.get("Competition")
+                    if competition:
+                        all_competitions.add(competition)
             available_comps = sorted(list(all_competitions)) if all_competitions else ["Indonesia Liga 1"]
         else:
             available_comps = ["Indonesia Liga 1"]
@@ -2413,7 +2416,7 @@ def display_outfield_scatter_plot_analysis(selected_players, player_stats, posit
             "Select competition for additional players:",
             options=available_comps,
             index=0,
-            help="Choose which competition to include additional players from (same position type only)"
+            help="Choose which competition to include additional players from (same position type only, within date filter)"
         )
 
     if selected_players:
@@ -2841,6 +2844,9 @@ def render_outfield_player_search(rag, filtered_data, position_type):
         st.warning("No player data available. Please check your data source.")
         return
 
+    # Display information about data filtering
+    st.info("📊 **Data Note**: All statistics shown below are calculated from matches within your selected date range (if date filter is active). This includes role rankings, player statistics, and match history.")
+
     # Search and filter controls
     st.subheader("Search and Filter Players")
 
@@ -2960,16 +2966,18 @@ def render_outfield_player_search(rag, filtered_data, position_type):
             show_top_10_only = st.checkbox("Show Top 10 Only", value=True)
 
         if selected_role != "None":
-            # Calculate role scores for all players
+            # Calculate role scores for all players using date-filtered data
             role_data = []
             role_weights = role_weights_dict[selected_role]
 
-            # Get all values for normalization
+            # Get all values for normalization from date-filtered player statistics
+            # Note: filtered_data already contains statistics recalculated from date-filtered matches
             all_values = {}
             for stat in role_weights.keys():
                 all_values[stat] = [filtered_data[p].get(stat, 0) for p in filtered_players]
 
             for player in filtered_players:
+                # Use date-filtered player statistics
                 stats = filtered_data[player]
 
                 # Calculate weighted score
@@ -2978,10 +2986,11 @@ def render_outfield_player_search(rag, filtered_data, position_type):
                 stat_values = {}
 
                 for stat, weight in role_weights.items():
+                    # Get value from date-filtered statistics
                     value = stats.get(stat, 0)
                     stat_values[stat] = value
 
-                    # Normalize the value (0-100 scale)
+                    # Normalize the value (0-100 scale) using min/max from date-filtered data
                     max_val = max(all_values[stat]) if all_values[stat] else 1
                     min_val = min(all_values[stat]) if all_values[stat] else 0
 
@@ -3069,23 +3078,24 @@ def render_outfield_player_search(rag, filtered_data, position_type):
     else:
         st.info(f"Role analysis for {position_type} will be implemented with position-specific roles.")
 
-    # Display results
+    # Display results using date-filtered player statistics
     st.subheader(f"Results: {len(filtered_players)} players found")
     if filtered_players:
-        # Create a DataFrame for display
+        # Create a DataFrame for display using date-filtered statistics
         data = []
         for player in filtered_players:
+            # Use date-filtered player statistics (already recalculated from filtered matches)
             stats = filtered_data[player]
             # Create row data based on position type
             row_data = {
                 "Player": player,
                 "Team": stats.get("team", "Unknown"),
                 "Position": stats.get("position", "Unknown"),
-                "Matches": stats.get("matches", 0),
-                "Minutes": stats.get("minutes", 0),
-                "Goals": stats.get("goals", 0),
-                "Assists": stats.get("assists", 0),
-                "Pass Accuracy": f"{stats.get('pass_accuracy', 0):.1f}%"
+                "Matches": stats.get("matches", 0),  # Matches from filtered date range
+                "Minutes": stats.get("minutes", 0),  # Minutes from filtered date range
+                "Goals": stats.get("goals", 0),      # Goals from filtered date range
+                "Assists": stats.get("assists", 0),  # Assists from filtered date range
+                "Pass Accuracy": f"{stats.get('pass_accuracy', 0):.1f}%"  # Calculated from filtered matches
             }
 
             # Add position-specific stats
@@ -3112,9 +3122,10 @@ def render_outfield_player_search(rag, filtered_data, position_type):
         if selected_player:
             st.subheader(f"Detailed Stats: {selected_player}")
 
+            # Use date-filtered player statistics
             stats = filtered_data[selected_player]
 
-            # Display key metrics based on position
+            # Display key metrics based on position (all calculated from date-filtered matches)
             if position_type == "Forwards":
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Goals", stats.get("goals", 0))
@@ -3143,9 +3154,10 @@ def render_outfield_player_search(rag, filtered_data, position_type):
                 col3.metric("Pass Accuracy", f"{stats.get('pass_accuracy', 0):.1f}%")
                 col4.metric("Matches Played", stats.get("matches", 0))
 
-            # Display match history
-            st.subheader("Match History")
+            # Display match history (filtered by date range)
+            st.subheader("Match History (Date Filtered)")
             if "match_data" in stats and stats["match_data"]:
+                # Note: match_data contains only matches within the selected date range
                 match_data = pd.DataFrame(stats["match_data"])
 
                 # Select relevant columns for outfield players
