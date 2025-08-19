@@ -276,7 +276,7 @@ def calculate_outfield_stats(matches, per_90_mode=False):
     total_goals = sum(match.get('Goals', 0) for match in matches)
     total_assists = sum(match.get('Assists', 0) for match in matches)
     total_shots = sum(match.get('Shots', 0) for match in matches)
-    total_shots_on_target = sum(match.get('Shots on target', 0) for match in matches)
+    total_shots_on_target = sum(match.get('Shots On Target', 0) for match in matches)
     total_xg = sum(match.get('xG', 0) for match in matches)
 
     # Passing stats
